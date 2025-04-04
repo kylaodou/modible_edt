@@ -18,19 +18,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Expanded(child: body()),
-          navigationButtons(),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(child: body()),
+            navigationButtons(),
+          ],
+        ),
       ),
     );
   }
 
-// BuildDots - Moved to appear right after the image
+  // BuildDots - Optimisé pour responsive
   Widget buildDots() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(
@@ -50,8 +52,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Updated body() with back button and dots repositioning
+  // Body optimisé pour responsive
   Widget body() {
+    final screenSize = MediaQuery.of(context).size;
+    final bool isSmallScreen = screenSize.height < 600;
+
     return Stack(
       children: [
         Center(
@@ -64,60 +69,88 @@ class _OnboardingPageState extends State<OnboardingPage> {
             },
             itemCount: onboardingData.items.length,
             itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.all(15),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Limiter la taille de l'animation Lottie
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.5,
-                      //Lotties
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Lottie.asset(
-                            onboardingData.items[index].image[1],
-                            fit: BoxFit.contain,
-                          ),
-                          Lottie.asset(
-                            onboardingData.items[index].image[0],
-                            fit: BoxFit.contain,
-                          ),
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  // Calculer les marges et tailles en fonction de l'espace disponible
+                  final availableHeight = constraints.maxHeight;
+                  final contentPadding = EdgeInsets.symmetric(
+                    horizontal: screenSize.width * 0.05,
+                    vertical: isSmallScreen ? 10 : 15,
+                  );
 
-                        ],
-                      ),
-                    ),
-                    // Dots ajoutés juste après l'image
-                    Padding(
-                      padding: const EdgeInsets.all(25),
-                      child: buildDots(),
-                    ),
-                    //Titre
+                  // Calculer la hauteur proportionnelle pour l'animation
+                  final animationHeight = isSmallScreen
+                      ? availableHeight * 0.35 // Plus petit sur petits écrans
+                      : availableHeight * 0.45; // Plus grand sur grands écrans
 
-                    Text(
-                      onboardingData.items[index].title,
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: primaryColor),
-                      textAlign: TextAlign.center,
+                  // Espacements adaptatifs
+                  final titleSpacing = isSmallScreen ? 5.0 : 10.0;
+                  final dotsSpacing = isSmallScreen ? 10.0 : 20.0;
+
+                  return Padding(
+                    padding: contentPadding,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Animation Lottie avec taille relative
+                        SizedBox(
+                          height: animationHeight,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Lottie.asset(
+                                onboardingData.items[index].image[1],
+                                fit: BoxFit.contain,
+                              ),
+                              Lottie.asset(
+                                onboardingData.items[index].image[0],
+                                fit: BoxFit.contain,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Dots avec espacement adaptatif
+                        Padding(
+                          padding: EdgeInsets.all(dotsSpacing),
+                          child: buildDots(),
+                        ),
+
+                        // Titre avec taille de texte adaptative
+                        Text(
+                          onboardingData.items[index].title,
+                          style: TextStyle(
+                              fontSize: isSmallScreen ? 22 : 26,
+                              fontWeight: FontWeight.bold,
+                              color: primaryColor
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+
+                        // Description avec espacement et taille adaptative
+                        SizedBox(height: titleSpacing),
+                        Text(
+                          onboardingData.items[index].description,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: isSmallScreen ? 14 : 16
+                          ),
+                        ),
+                      ],
                     ),
-                    //Description
-                    const SizedBox(height: 10),
-                    Text(
-                      onboardingData.items[index].description,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.grey, fontSize: 18),
-                    ),
-                  ],
-                ),
+                  );
+                },
               );
             },
           ),
         ),
-        // Flèche pour revenir en arrière (visible seulement si pas sur la première page)
+
+        // Back button avec positionnement relatif
         if (currentIndex > 0)
           Positioned(
-            top: 50,
-            left: 20,
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 10,
             child: IconButton(
               icon: const Icon(Icons.arrow_back_ios, color: primaryColor),
               onPressed: () {
@@ -132,18 +165,27 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  // Navigation Buttons updated
+  // Navigation Buttons avec taille responsive
   Widget navigationButtons() {
+    final screenSize = MediaQuery.of(context).size;
     final isLastPage = currentIndex == onboardingData.items.length - 1;
+    final bool isSmallScreen = screenSize.height < 600;
+
+    // Ajustement des marges pour différentes tailles d'écran
+    final horizontalPadding = screenSize.width * 0.05;
+    final verticalPadding = isSmallScreen ? 15.0 : 25.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       child: Row(
         mainAxisAlignment: isLastPage
-            ? MainAxisAlignment.center  // Centré pour le dernier écran
-            : MainAxisAlignment.spaceBetween,  // Espacé pour les autres écrans
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.spaceBetween,
         children: [
-          // Skip button - visible seulement si pas sur la dernière page
+          // Skip button
           if (!isLastPage)
             TextButton(
               style: TextButton.styleFrom(
@@ -151,7 +193,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 8 : 12,
+                  vertical: isSmallScreen ? 10 : 15,
+                ),
               ),
               onPressed: () {
                 pageController.animateToPage(
@@ -166,7 +211,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
 
-          // Button with full width on last page or arrow on other pages
+          // Action button avec taille adaptative
           ElevatedButton(
             onPressed: () {
               if (isLastPage) {
@@ -185,17 +230,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              padding: EdgeInsets.symmetric(
+                horizontal: isSmallScreen ? 20 : 30,
+                vertical: isSmallScreen ? 10 : 15,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              // Élargir le bouton sur la dernière page
+              // Taille adaptative du bouton
               minimumSize: isLastPage
-                  ? Size(MediaQuery.of(context).size.width - 40, 50)
-                  : const Size(50, 50),
+                  ? Size(screenSize.width - (horizontalPadding * 2), isSmallScreen ? 40 : 50)
+                  : Size(isSmallScreen ? 40 : 50, isSmallScreen ? 40 : 50),
             ),
             child: isLastPage
-                ? const Text("Commencer", style: TextStyle(fontSize: 16))
+                ? Text("Commencer", style: TextStyle(fontSize: isSmallScreen ? 14 : 16))
                 : const Icon(Icons.arrow_forward),
           )
         ],
