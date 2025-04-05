@@ -12,6 +12,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,13 +46,16 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   Container(
-                    height: MediaQuery.of(context).size.height * 0.4,
+                    height: MediaQuery.of(context).size.height * 0.35,
                     width: MediaQuery.of(context).size.width,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.only(topRight: Radius.circular(50)),
+                      borderRadius:
+                          BorderRadius.only(topRight: Radius.circular(50)),
                     ),
                     child: Form(
+                        key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         child: Padding(
                           padding: const EdgeInsets.all(28),
                           child: Column(
@@ -58,24 +63,195 @@ class _LoginPageState extends State<LoginPage> {
                               TextFormField(
                                 controller: _emailController,
                                 decoration: InputDecoration(
-                                  label: Text('Entrez votre email'),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(50),
-                                    borderSide: BorderSide.none
-                                  ),
-                                  filled: true,
-                                  fillColor: primaryColor.withOpacity(0.3),
-                                  floatingLabelBehavior: FloatingLabelBehavior.never
-          
+                                    label: Text(
+                                      'Entrez votre email',
+                                      style: TextStyle(color: Colors.black26),
+                                    ),
+                                    border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                        borderSide: BorderSide.none),
+                                    prefixIcon: Icon(
+                                      Icons.email,
+                                      color: primaryColor,
+                                    ),
+                                    filled: true,
+                                    fillColor: primaryColor.withOpacity(0.3),
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.never,
+                                    focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: primaryColor)),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: errorColor)),
+                                    errorStyle: TextStyle(
+                                        color: errorColor, fontSize: 15)),
+                                keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  if (value!.isEmpty) {
+                                    return '* Le champ email est obligateaoire';
+                                  }
+                                  if (!value.contains("@gmail.com")) {
+                                    return '* Le champ email doit contenir @gmail.com';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(
+                                height: 30,
+                              ),
+                              TextFormField(
+                                controller: _passwordController,
+                                decoration: InputDecoration(
+                                    label: Text(
+                                      'Entrez votre mot de passe',
+                                      style: TextStyle(color: Colors.black26),
+                                    ),
+                                    border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                        borderSide: BorderSide.none),
+                                    prefixIcon: Icon(
+                                      Icons.password,
+                                      color: primaryColor,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      onPressed: () {},
+                                      icon: Icon(Icons.remove_red_eye),
+                                      color: primaryColor,
+                                    ),
+                                    filled: true,
+                                    fillColor: primaryColor.withOpacity(0.3),
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.never,
+                                    focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: primaryColor)),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: errorColor)),
+                                    errorStyle: TextStyle(
+                                        color: errorColor, fontSize: 15)),
+                                keyboardType: TextInputType.emailAddress,
+                                obscureText: true,
+                                validator: (value) {
+                                  if (value!.isEmpty) {
+                                    return '* Le champ password est obligateaoire';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(
+                                height: 30,
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  if (_formKey.currentState!.validate()) {}
+                                },
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    minimumSize: Size(
+                                        MediaQuery.of(context).size.width *
+                                            0.85,
+                                        50),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50))),
+                                child: Text(
+                                  "Connexion",
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 18),
                                 ),
-                              )
+                              ),
                             ],
                           ),
-                        )
-                    ),
+                        )),
                   ),
                 ],
-              )
+              ),
+              Row(
+                children: [
+                  Expanded(child: Divider(thickness: 1)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('OU'),
+                  ),
+                  Expanded(child: Divider(thickness: 1)),
+                ],
+              ),
+              SizedBox(
+                height: 30,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  OutlinedButton(
+                    onPressed: () {},
+                    style: ButtonStyle(
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Colors.grey)
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Image.asset(
+                          "assets/images/google.png",
+                          height: 30,
+                        ),
+                        SizedBox(
+                          width: 15,
+                        ),
+                        Text(
+                          "Google",
+                          style: TextStyle(fontSize: 17),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () {},
+                    style: ButtonStyle(
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.grey)
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Image.asset(
+                          "assets/images/facebook.png",
+                          height: 30,
+                        ),
+                        SizedBox(
+                          width: 15,
+                        ),
+                        Text(
+                          "Facebook",
+                          style: TextStyle(fontSize: 17),
+                        )
+                      ],
+                    ),
+                    
+                  ),
+                  SizedBox(height: 100,),
+
+                ],
+              ),
+              TextButton(
+                onPressed: () {
+
+                },
+                child: Text("Vous n'avez pas de compte, Inscrivez vous", style: TextStyle(fontSize: 15),),
+              ),
             ],
           ),
         ),
