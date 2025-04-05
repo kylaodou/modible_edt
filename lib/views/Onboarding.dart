@@ -18,6 +18,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -149,7 +150,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         // Back button avec positionnement relatif
         if (currentIndex > 0)
           Positioned(
-            top: MediaQuery.of(context).padding.top + 10,
+            top: MediaQuery.of(context).padding.top + 5,
             left: 10,
             child: IconButton(
               icon: const Icon(Icons.arrow_back_ios, color: primaryColor),
@@ -216,10 +217,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             onPressed: () {
               if (isLastPage) {
                 print('Commencer l\'application');
-                // Navigator.pushReplacement(
-                //   context,
-                //   MaterialPageRoute(builder: (context) => MainPage()),
-                // );
+                Navigator.pushNamed(context, '/login');
               } else {
                 pageController.nextPage(
                   duration: const Duration(milliseconds: 400),
