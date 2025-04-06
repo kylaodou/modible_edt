@@ -271,13 +271,22 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  "Vous n'avez pas de compte, Inscrivez vous",
-                  style: TextStyle(fontSize: 15),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text("Vous n'avez pas de compte ?"),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/register');
+                  },
+                  child: Text(
+                    "Inscrivez-vous",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontStyle: FontStyle.italic,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ),
-              ),
+              ]),
             ],
           ),
         ),
