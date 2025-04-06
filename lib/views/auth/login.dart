@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   Container(
-                    height: MediaQuery.of(context).size.height * 0.35,
+                    height: MediaQuery.of(context).size.height * 0.36,
                     width: MediaQuery.of(context).size.width,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -145,7 +145,11 @@ class _LoginPageState extends State<LoginPage> {
                                 },
                               ),
                               SizedBox(
-                                height: 30,
+                                height: 10,
+                              ),
+                              TextButton(
+                                onPressed: () {},
+                                child: Text("Mot de passe oublier ?"),
                               ),
                               ElevatedButton(
                                 onPressed: () {
@@ -183,7 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
               SizedBox(
-                height: 30,
+                height: 10,
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -193,9 +197,8 @@ class _LoginPageState extends State<LoginPage> {
                     style: ButtonStyle(
                       shape: WidgetStatePropertyAll(
                         RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.grey)
-                        ),
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.grey)),
                       ),
                     ),
                     child: Row(
@@ -220,8 +223,7 @@ class _LoginPageState extends State<LoginPage> {
                       shape: WidgetStatePropertyAll(
                         RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: Colors.grey)
-                        ),
+                            side: BorderSide(color: Colors.grey)),
                       ),
                     ),
                     child: Row(
@@ -240,17 +242,18 @@ class _LoginPageState extends State<LoginPage> {
                         )
                       ],
                     ),
-                    
                   ),
-                  SizedBox(height: 100,),
-
+                  SizedBox(
+                    height: 100,
+                  ),
                 ],
               ),
               TextButton(
-                onPressed: () {
-
-                },
-                child: Text("Vous n'avez pas de compte, Inscrivez vous", style: TextStyle(fontSize: 15),),
+                onPressed: () {},
+                child: Text(
+                  "Vous n'avez pas de compte, Inscrivez vous",
+                  style: TextStyle(fontSize: 15),
+                ),
               ),
             ],
           ),
