@@ -3,6 +3,7 @@ import 'package:modible_edt/core/theme/colors.dart';
 import 'package:modible_edt/views/Onboarding.dart';
 import 'package:modible_edt/views/auth/login.dart';
 import 'package:modible_edt/views/auth/register.dart';
+import 'package:modible_edt/views/auth/verifyCode.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,6 +24,8 @@ class MyApp extends StatelessWidget {
             return MaterialPageRoute(builder : (_) => LoginPage());
           case '/register':
             return MaterialPageRoute(builder : (_) => RegisterPage());
+          case '/verifyCode':
+            return MaterialPageRoute(builder : (_) => VerifyCode());
           default:
             return MaterialPageRoute(builder: (_) => OnboardingPage());
         }

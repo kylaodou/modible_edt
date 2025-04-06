@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:modible_edt/core/theme/colors.dart';
+import 'package:modible_edt/models/apiResponse.dart';
+import 'package:modible_edt/services/registerService.dart';
+
+import '../../models/loginModel.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -17,6 +21,49 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
 
   bool _textCacher = true;
+
+  bool _isLoading = false;
+
+// Méthode pour l'inscription
+  Future<void> _inscription() async {
+    // Créer un objet LoginModel
+    LoginModel login = LoginModel(
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      ApiResponse response = await inscription(login);
+      setState(() {
+        _isLoading = false;
+      });
+      if (response.success) {
+        // Afficher un message de succès
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response.message ?? 'Inscription réussie')),
+        );
+        // Rediriger vers la page de vérification
+        Navigator.pushNamed(context, '/verifyCode', arguments: login.email);
+      } else {
+        // Afficher un message d'erreur
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response.message ?? 'Erreur lors de l\'inscription')),
+        );
+        if (response.errors != null && response.errors is Map) {
+          print(response.errors);
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: ${e.toString()}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,206 +96,207 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      width: MediaQuery.of(context).size.width,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius:
-                            BorderRadius.only(topRight: Radius.circular(50)),
-                      ),
-                      child: Form(
-                          key: _formKey,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          child: Padding(
-                            padding: const EdgeInsets.all(28),
-                            child: Column(
-                              children: [
-                                // Email
-                                TextFormField(
-                                  controller: _emailController,
-                                  decoration: InputDecoration(
-                                      label: Text(
-                                        'Entrez votre email',
-                                        style: TextStyle(color: Colors.black26),
-                                      ),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide: BorderSide.none),
-                                      prefixIcon: Icon(
-                                        Icons.email,
-                                        color: primaryColor,
-                                      ),
-                                      filled: true,
-                                      fillColor: primaryColor.withOpacity(0.3),
-                                      floatingLabelBehavior:
-                                          FloatingLabelBehavior.never,
-                                      focusedBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide:
-                                              BorderSide(color: primaryColor)),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide:
-                                              BorderSide(color: errorColor)),
-                                      errorStyle: TextStyle(
-                                          color: errorColor, fontSize: 15)),
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value!.isEmpty) {
-                                      return '* Le champ email est obligateaoire';
-                                    }
-                                    if (!value.contains("@gmail.com")) {
-                                      return '* Le champ email doit contenir @gmail.com';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                SizedBox(
-                                  height: 30,
-                                ),
-                                TextFormField(
-                                  obscuringCharacter: "*",
-                                  controller: _passwordController,
-                                  decoration: InputDecoration(
-                                      label: Text(
-                                        'Entrez votre mot de passe',
-                                        style: TextStyle(color: Colors.black26),
-                                      ),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide: BorderSide.none),
-                                      prefixIcon: Icon(
-                                        Icons.password,
-                                        color: primaryColor,
-                                      ),
-                                      suffixIcon: IconButton(
-                                        onPressed: () {
-                                          //
-                                          setState(() {
-                                            _textCacher = !_textCacher;
-                                          });
-                                        },
-                                        icon: _textCacher
-                                            ? Icon(Icons.visibility_off)
-                                            : Icon(Icons.remove_red_eye),
-                                        color: primaryColor,
-                                      ),
-                                      filled: true,
-                                      fillColor: primaryColor.withOpacity(0.3),
-                                      floatingLabelBehavior:
-                                          FloatingLabelBehavior.never,
-                                      focusedBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide:
-                                              BorderSide(color: primaryColor)),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide:
-                                              BorderSide(color: errorColor)),
-                                      errorStyle: TextStyle(
-                                          color: errorColor, fontSize: 15)),
-                                  keyboardType: TextInputType.emailAddress,
-                                  obscureText: _textCacher,
-                                  validator: (value) {
-                                    if (value!.isEmpty) {
-                                      return '* Le champ password est obligateaoire';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                SizedBox(
-                                  height: 30,
-                                ),
-                                TextFormField(
-                                  obscuringCharacter: "*",
-                                  controller: _confirmPasswordController,
-                                  decoration: InputDecoration(
-                                      label: Text(
-                                        'Confirmer votre mot de passe',
-                                        style: TextStyle(color: Colors.black26),
-                                      ),
-                                      border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide: BorderSide.none),
-                                      prefixIcon: Icon(
-                                        Icons.password,
-                                        color: primaryColor,
-                                      ),
-                                      suffixIcon: IconButton(
-                                        onPressed: () {
-                                          //
-                                          setState(() {
-                                            _textCacher = !_textCacher;
-                                          });
-                                        },
-                                        icon: _textCacher
-                                            ? Icon(Icons.visibility_off)
-                                            : Icon(Icons.remove_red_eye),
-                                        color: primaryColor,
-                                      ),
-                                      filled: true,
-                                      fillColor: primaryColor.withOpacity(0.3),
-                                      floatingLabelBehavior:
-                                          FloatingLabelBehavior.never,
-                                      focusedBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide:
-                                              BorderSide(color: primaryColor)),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50),
-                                          borderSide:
-                                              BorderSide(color: errorColor)),
-                                      errorStyle: TextStyle(
-                                          color: errorColor, fontSize: 15)),
-                                  keyboardType: TextInputType.emailAddress,
-                                  obscureText: _textCacher,
-                                  validator: (value) {
-                                    if (value!.isEmpty) {
-                                      return '* Le champ password est obligateaoire';
-                                    }
-                                    if (_passwordController.text ==
-                                        _confirmPasswordController.text) {
-                                      return '* Les mots de passe ne correspondent pas';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                SizedBox(
-                                  height: 30,
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (_formKey.currentState!.validate()) {}
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                      backgroundColor: primaryColor,
-                                      minimumSize: Size(
-                                          MediaQuery.of(context).size.width *
-                                              0.85,
-                                          50),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(50))),
-                                  child: Text(
-                                    "S'inscrire",
-                                    style: TextStyle(
-                                        color: Colors.white, fontSize: 18),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )),
+                  Container(
+                    width: MediaQuery.of(context).size.width,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.only(topRight: Radius.circular(50)),
                     ),
+                    child: Form(
+                        key: _formKey,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            children: [
+                              // Email
+                              TextFormField(
+                                controller: _emailController,
+                                decoration: InputDecoration(
+                                    label: Text(
+                                      'Entrez votre email',
+                                      style: TextStyle(color: Colors.black26),
+                                    ),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide: BorderSide.none),
+                                    prefixIcon: Icon(
+                                      Icons.email,
+                                      color: primaryColor,
+                                    ),
+                                    filled: true,
+                                    fillColor: primaryColor.withOpacity(0.3),
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.never,
+                                    focusedBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: primaryColor)),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: errorColor)),
+                                    errorStyle: TextStyle(
+                                        color: errorColor, fontSize: 15)),
+                                keyboardType: TextInputType.emailAddress,
+                                validator: (value) {
+                                  if (value!.isEmpty) {
+                                    return '* Le champ email est obligateaoire';
+                                  }
+                                  if (!value.contains("@gmail.com")) {
+                                    return '* Le champ email doit contenir @gmail.com';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(
+                                height: 30,
+                              ),
+                              TextFormField(
+                                obscuringCharacter: "*",
+                                controller: _passwordController,
+                                decoration: InputDecoration(
+                                    label: Text(
+                                      'Entrez votre mot de passe',
+                                      style: TextStyle(color: Colors.black26),
+                                    ),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide: BorderSide.none),
+                                    prefixIcon: Icon(
+                                      Icons.password,
+                                      color: primaryColor,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      onPressed: () {
+                                        //
+                                        setState(() {
+                                          _textCacher = !_textCacher;
+                                        });
+                                      },
+                                      icon: _textCacher
+                                          ? Icon(Icons.visibility_off)
+                                          : Icon(Icons.remove_red_eye),
+                                      color: primaryColor,
+                                    ),
+                                    filled: true,
+                                    fillColor: primaryColor.withOpacity(0.3),
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.never,
+                                    focusedBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: primaryColor)),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: errorColor)),
+                                    errorStyle: TextStyle(
+                                        color: errorColor, fontSize: 15)),
+                                keyboardType: TextInputType.emailAddress,
+                                obscureText: _textCacher,
+                                validator: (value) {
+                                  if (value!.isEmpty) {
+                                    return '* Le champ password est obligateaoire';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(
+                                height: 30,
+                              ),
+                              TextFormField(
+                                obscuringCharacter: "*",
+                                controller: _confirmPasswordController,
+                                decoration: InputDecoration(
+                                    label: Text(
+                                      'Confirmer votre mot de passe',
+                                      style: TextStyle(color: Colors.black26),
+                                    ),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide: BorderSide.none),
+                                    prefixIcon: Icon(
+                                      Icons.password,
+                                      color: primaryColor,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      onPressed: () {
+                                        //
+                                        setState(() {
+                                          _textCacher = !_textCacher;
+                                        });
+                                      },
+                                      icon: _textCacher
+                                          ? Icon(Icons.visibility_off)
+                                          : Icon(Icons.remove_red_eye),
+                                      color: primaryColor,
+                                    ),
+                                    filled: true,
+                                    fillColor: primaryColor.withOpacity(0.3),
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.never,
+                                    focusedBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: primaryColor)),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50),
+                                        borderSide:
+                                            BorderSide(color: errorColor)),
+                                    errorStyle: TextStyle(
+                                        color: errorColor, fontSize: 15)),
+                                keyboardType: TextInputType.emailAddress,
+                                obscureText: _textCacher,
+                                validator: (value) {
+                                  if (value!.isEmpty) {
+                                    return '* Le champ password est obligateaoire';
+                                  }
+                                  if (_passwordController.text !=
+                                      _confirmPasswordController.text) {
+                                    return '* Les mots de passe ne correspondent pas';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              SizedBox(
+                                height: 30,
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  if (_formKey.currentState!.validate()) {
+                                    _inscription();
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    minimumSize: Size(
+                                        MediaQuery.of(context).size.width *
+                                            0.85,
+                                        50),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(50))),
+                                child: _isLoading
+                                    ? CircularProgressIndicator(color: Colors.white)
+                                    : Text(
+                                  "S'inscrire",
+                                  style: TextStyle(color: Colors.white, fontSize: 18),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
                   ),
                 ],
               ),
@@ -320,7 +368,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                   SizedBox(
-                    height: 100,
+                    height: 80,
                   ),
                 ],
               ),
@@ -340,6 +388,19 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
               ]),
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/verifyCode');
+                },
+                child: Text(
+                  "verifier",
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontStyle: FontStyle.italic,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
