@@ -49,7 +49,9 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         // Afficher un message d'erreur
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message ?? 'Erreur lors de l\'inscription')),
+          SnackBar(
+              content:
+                  Text(response.message ?? 'Erreur lors de l\'inscription')),
         );
         if (response.errors != null && response.errors is Map) {
           print(response.errors);
@@ -119,8 +121,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       style: TextStyle(color: Colors.black26),
                                     ),
                                     border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide: BorderSide.none),
                                     prefixIcon: Icon(
                                       Icons.email,
@@ -131,13 +132,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                     floatingLabelBehavior:
                                         FloatingLabelBehavior.never,
                                     focusedBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide:
                                             BorderSide(color: primaryColor)),
                                     focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide:
                                             BorderSide(color: errorColor)),
                                     errorStyle: TextStyle(
@@ -165,8 +164,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       style: TextStyle(color: Colors.black26),
                                     ),
                                     border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide: BorderSide.none),
                                     prefixIcon: Icon(
                                       Icons.password,
@@ -189,13 +187,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                     floatingLabelBehavior:
                                         FloatingLabelBehavior.never,
                                     focusedBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide:
                                             BorderSide(color: primaryColor)),
                                     focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide:
                                             BorderSide(color: errorColor)),
                                     errorStyle: TextStyle(
@@ -221,8 +217,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       style: TextStyle(color: Colors.black26),
                                     ),
                                     border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide: BorderSide.none),
                                     prefixIcon: Icon(
                                       Icons.password,
@@ -245,13 +240,11 @@ class _RegisterPageState extends State<RegisterPage> {
                                     floatingLabelBehavior:
                                         FloatingLabelBehavior.never,
                                     focusedBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide:
                                             BorderSide(color: primaryColor)),
                                     focusedErrorBorder: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50),
+                                        borderRadius: BorderRadius.circular(50),
                                         borderSide:
                                             BorderSide(color: errorColor)),
                                     errorStyle: TextStyle(
@@ -288,11 +281,13 @@ class _RegisterPageState extends State<RegisterPage> {
                                         borderRadius:
                                             BorderRadius.circular(50))),
                                 child: _isLoading
-                                    ? CircularProgressIndicator(color: Colors.white)
+                                    ? CircularProgressIndicator(
+                                        color: Colors.white)
                                     : Text(
-                                  "S'inscrire",
-                                  style: TextStyle(color: Colors.white, fontSize: 18),
-                                ),
+                                        "S'inscrire",
+                                        style: TextStyle(
+                                            color: Colors.white, fontSize: 18),
+                                      ),
                               ),
                             ],
                           ),
@@ -390,7 +385,8 @@ class _RegisterPageState extends State<RegisterPage> {
               ]),
               TextButton(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/verifyCode');
+                  const email = "orazackdev@gmail.com";
+                  Navigator.pushNamed(context, '/verifyCode', arguments: email);
                 },
                 child: Text(
                   "verifier",

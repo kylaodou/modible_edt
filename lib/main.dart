@@ -17,15 +17,17 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       initialRoute: '/',
       onGenerateRoute: (settings) {
-        switch (settings.name){
+        switch (settings.name) {
           case '/':
-            return MaterialPageRoute(builder : (_) => OnboardingPage());
+            return MaterialPageRoute(builder: (_) => OnboardingPage());
           case '/login':
-            return MaterialPageRoute(builder : (_) => LoginPage());
+            return MaterialPageRoute(builder: (_) => LoginPage());
           case '/register':
-            return MaterialPageRoute(builder : (_) => RegisterPage());
+            return MaterialPageRoute(builder: (_) => RegisterPage());
           case '/verifyCode':
-            return MaterialPageRoute(builder : (_) => VerifyCode());
+            final email = settings.arguments as String?;
+            return MaterialPageRoute(
+                builder: (_) => VerifyCode(email: email ?? ''));
           default:
             return MaterialPageRoute(builder: (_) => OnboardingPage());
         }
