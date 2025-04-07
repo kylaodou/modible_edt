@@ -40,18 +40,22 @@ class _RegisterPageState extends State<RegisterPage> {
         _isLoading = false;
       });
       if (response.success) {
-        // Afficher un message de succès
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.message ?? 'Inscription réussie')),
+        // Afficher un message de succès personnalisé
+        _showCustomSnackBar(
+          context: context,
+          title: 'Information',
+          message: response.message ?? 'Inscription réussie',
+          isSuccess: true,
         );
         // Rediriger vers la page de vérification
         Navigator.pushNamed(context, '/verifyCode', arguments: login.email);
       } else {
-        // Afficher un message d'erreur
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text(response.message ?? 'Erreur lors de l\'inscription')),
+        // Afficher un message d'erreur personnalisé
+        _showCustomSnackBar(
+          context: context,
+          title: 'Erreur',
+          message: response.message ?? 'Erreur lors de l\'inscription',
+          isSuccess: false,
         );
         if (response.errors != null && response.errors is Map) {
           print(response.errors);
@@ -61,10 +65,97 @@ class _RegisterPageState extends State<RegisterPage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
+      _showCustomSnackBar(
+        context: context,
+        title: 'Erreur',
+        message: 'Erreur: ${e.toString()}',
+        isSuccess: false,
       );
     }
+  }
+
+// Fonction pour afficher une SnackBar personnalisée
+  void _showCustomSnackBar({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required bool isSuccess,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(10),
+        padding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: EdgeInsets.zero,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // En-tête bleu avec texte blanc
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSuccess ? primaryColor : errorColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    topRight: Radius.circular(15),
+                  ),
+                ),
+                width: double.infinity,
+                child: Row(
+                  children: [
+                    Icon(
+                      isSuccess ? Icons.check_circle : Icons.error,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Corps avec le message
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: isSuccess ? Border.all(color: primaryColor) : Border.all(color: errorColor)
+                ),
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -383,20 +474,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
               ]),
-              TextButton(
-                onPressed: () {
-                  const email = "orazackdev@gmail.com";
-                  Navigator.pushNamed(context, '/verifyCode', arguments: email);
-                },
-                child: Text(
-                  "verifier",
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontStyle: FontStyle.italic,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
