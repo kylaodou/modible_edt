@@ -301,6 +301,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                   if (value!.isEmpty) {
                                     return '* Le champ password est obligateaoire';
                                   }
+                                  if(value.length < 8){
+                                    return '* Au minimum 8 caractères';
+                                  }
                                   return null;
                                 },
                               ),

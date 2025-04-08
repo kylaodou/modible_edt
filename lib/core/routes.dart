@@ -3,3 +3,4 @@ const inscriptionURL = '$baseURL/login';
 const verifyCodeURL = '$baseURL/login/verify';
 const resendVerifyCodeURL = '$baseURL/login/resend-code';
 const checkUserStatusURL = '$baseURL/login/status';
+const connexionEmailPasswordURL = '$baseURL/login/authenticate';

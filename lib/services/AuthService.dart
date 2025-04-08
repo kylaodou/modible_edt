@@ -7,6 +7,8 @@ import 'package:modible_edt/models/apiResponse.dart';
 import 'package:modible_edt/models/loginModel.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/routes.dart';
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
@@ -73,8 +75,15 @@ class AuthService {
 // Méthode pour la connexion avec Facebook
   Future<ApiResponse> signInWithFacebook() async {
     try {
-      // Déclencher le flux d'authentification Facebook
-      final LoginResult loginResult = await FacebookAuth.instance.login();
+      // Déconnexion de Facebook d'abord pour forcer une nouvelle sélection de compte
+      await FacebookAuth.instance.logOut();
+
+      // Déclencher le flux d'authentification Facebook avec des options pour forcer la sélection
+      final LoginResult loginResult = await FacebookAuth.instance.login(
+        permissions: ['email', 'public_profile'],
+        loginBehavior: LoginBehavior.dialogOnly, // Force l'ouverture d'une boîte de dialogue
+      );
+
 
       // Vérifier si la connexion a été annulée ou a échoué
       if (loginResult.status != LoginStatus.success) {
@@ -190,6 +199,81 @@ class AuthService {
         return ApiResponse(
           success: false,
           message: data['message'] ?? 'Erreur lors de la vérification du compte',
+        );
+      }
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur de connexion: ${e.toString()}',
+      );
+    }
+  }
+
+  // Méthode pour l'authentification avec email et mot de passe
+  Future<ApiResponse> signInWithEmailPassword(String email, String password) async {
+    try {
+      // Appel à votre API Spring Boot pour l'authentification
+      final response = await http.post(
+        Uri.parse(connexionEmailPasswordURL),
+        headers: {'Content-Type': 'application/json',
+          'Accept': 'application/json; charset=UTF-8',},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        // Si l'authentification est réussie, connecter l'utilisateur à Firebase
+        try {
+          // Authentification Firebase avec email et mot de passe
+          final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+
+          // Combiner les données Firebase avec les données de votre API
+          final userData = data['userData'] ?? data['user'];
+          userData['uid'] = userCredential.user?.uid;
+          userData['photoURL'] = userCredential.user?.photoURL;
+
+          return ApiResponse(
+            success: true,
+            message: 'Connexion réussie',
+            data: userData,
+          );
+        } on FirebaseAuthException catch (e) {
+          // Gérer les erreurs spécifiques à Firebase
+          String message;
+          switch (e.code) {
+            case 'user-not-found':
+              message = 'Aucun utilisateur trouvé avec cet email';
+              break;
+            case 'wrong-password':
+              message = 'Mot de passe incorrect';
+              break;
+            case 'invalid-credential':
+              message = 'Identifiants invalides';
+              break;
+            default:
+              message = 'Erreur d\'authentification Firebase: ${e.message}';
+          }
+
+          return ApiResponse(
+            success: false,
+            message: message,
+            errors: {'error': e.code},
+          );
+        }
+      } else {
+        // Si l'authentification a échoué
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de l\'authentification',
+          status: data['status'],
+          errors: data['errors'],
         );
       }
     } catch (e) {

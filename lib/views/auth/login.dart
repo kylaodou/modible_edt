@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:modible_edt/core/theme/colors.dart';
 
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import '../../models/apiResponse.dart';
 import '../../services/AuthService.dart';
 
@@ -16,9 +17,10 @@ class _LoginPageState extends State<LoginPage> {
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _isGoogleLoading = false; // Pour l'état de chargement du bouton Google
+  bool _isGoogleLoading = false; // Pour l' état de chargement du bouton Google
   bool _isFacebookLoading = false;
   bool _textCacher = true;
+  bool _isLoading = false;
   final AuthService _authService = AuthService();
 
   // Nouvelle méthode pour l'inscription avec Google
@@ -82,6 +84,7 @@ class _LoginPageState extends State<LoginPage> {
   // Dans votre _RegisterPageState, ajoutez cette nouvelle méthode:
   Future<void> _signInWithFacebook() async {
     await _authService.signOut();
+    await FacebookAuth.instance.logOut();
     setState(() {
       _isFacebookLoading = true;
     });
@@ -376,23 +379,83 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                 ),
                               ),
+                              // Remplacez votre bouton de connexion existant par celui-ci
                               ElevatedButton(
-                                onPressed: () {
-                                  if (_formKey.currentState!.validate()) {}
+                                onPressed: () async {
+                                  if (_formKey.currentState!.validate()) {
+                                    // Afficher un indicateur de chargement
+                                    setState(() {
+                                      _isLoading = true; // Ajoutez cette variable d'état
+                                    });
+
+                                    try {
+                                      ApiResponse response = await _authService.signInWithEmailPassword(
+                                        _emailController.text,
+                                        _passwordController.text,
+                                      );
+
+                                      setState(() {
+                                        _isLoading = false;
+                                      });
+
+                                      if (response.success) {
+                                        _showCustomSnackBar(
+                                          context: context,
+                                          title: 'Bienvenue',
+                                          message: 'Bienvenue, ${response.data['nom'] ?? 'utilisateur'}',
+                                          isSuccess: true,
+                                        );
+
+                                        // Rediriger vers la page d'accueil avec les données utilisateur
+                                        Navigator.pushReplacementNamed(
+                                          context,
+                                          '/dashboard',
+                                          arguments: response.data,
+                                        );
+                                      } else {
+                                        // Afficher le message d'erreur spécifique
+                                        _showCustomSnackBar(
+                                          context: context,
+                                          title: 'Erreur de connexion',
+                                          message: response.message ?? 'Identifiants incorrects',
+                                          isSuccess: false,
+                                        );
+                                      }
+                                    } catch (e) {
+                                      setState(() {
+                                        _isLoading = false;
+                                      });
+                                      _showCustomSnackBar(
+                                        context: context,
+                                        title: 'Erreur',
+                                        message: 'Erreur: ${e.toString()}',
+                                        isSuccess: false,
+                                      );
+                                    }
+                                  }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                    backgroundColor: primaryColor,
-                                    minimumSize: Size(
-                                        MediaQuery.of(context).size.width *
-                                            0.85,
-                                        50),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(50))),
-                                child: Text(
+                                  backgroundColor: primaryColor,
+                                  minimumSize: Size(
+                                    MediaQuery.of(context).size.width * 0.85,
+                                    50,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(50),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                    : Text(
                                   "Connexion",
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 18),
+                                  style: TextStyle(color: Colors.white, fontSize: 18),
                                 ),
                               ),
                             ],
