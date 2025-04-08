@@ -235,6 +235,7 @@ class _VerifyCodeState extends State<VerifyCode> {
             children: [
               // En-tête bleu avec texte blanc
               Container(
+
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: isSuccess ? primaryColor : errorColor,
@@ -277,6 +278,7 @@ class _VerifyCodeState extends State<VerifyCode> {
               ),
               // Corps avec le message
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                     border: isSuccess ? Border.all(color: primaryColor) : Border.all(color: errorColor)

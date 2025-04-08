@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "447896228734",
+    "project_id": "apiedt-fab33",
+    "storage_bucket": "apiedt-fab33.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:447896228734:android:cbe2c7e2c4514203ea992f",
+        "android_client_info": {
+          "package_name": "com.groupe8.modible_edt"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "447896228734-248al7o1cr7157568ukagn6ttovodcaj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGIdfolnpl3gvk6f56SrInJTsqbn_krBI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "447896228734-248al7o1cr7157568ukagn6ttovodcaj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

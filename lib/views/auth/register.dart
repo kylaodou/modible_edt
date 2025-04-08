@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:modible_edt/core/theme/colors.dart';
 import 'package:modible_edt/models/apiResponse.dart';
 import 'package:modible_edt/services/registerService.dart';
+import 'package:modible_edt/services/authService.dart'; // Importez votre nouveau service
+
 
 import '../../models/loginModel.dart';
 
@@ -19,12 +22,14 @@ class _RegisterPageState extends State<RegisterPage> {
   TextEditingController _confirmPasswordController = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
+  final AuthService _authService = AuthService(); // Instanciez votre service d'authentification
 
   bool _textCacher = true;
-
   bool _isLoading = false;
+  bool _isGoogleLoading = false; // Pour l'état de chargement du bouton Google
+  bool _isFacebookLoading = false;
 
-// Méthode pour l'inscription
+  // Méthode pour l'inscription avec email/password
   Future<void> _inscription() async {
     // Créer un objet LoginModel
     LoginModel login = LoginModel(
@@ -35,10 +40,13 @@ class _RegisterPageState extends State<RegisterPage> {
       _isLoading = true;
     });
     try {
+
       ApiResponse response = await inscription(login);
+
       setState(() {
         _isLoading = false;
       });
+
       if (response.success) {
         // Afficher un message de succès personnalisé
         _showCustomSnackBar(
@@ -57,9 +65,6 @@ class _RegisterPageState extends State<RegisterPage> {
           message: response.message ?? 'Erreur lors de l\'inscription',
           isSuccess: false,
         );
-        if (response.errors != null && response.errors is Map) {
-          print(response.errors);
-        }
       }
     } catch (e) {
       setState(() {
@@ -74,13 +79,17 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-// Fonction pour afficher une SnackBar personnalisée
+
+
+
+  // Fonction pour afficher une SnackBar personnalisée (inchangée)
   void _showCustomSnackBar({
     required BuildContext context,
     required String title,
     required String message,
     required bool isSuccess,
   }) {
+    // Votre code de SnackBar existant
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -106,7 +115,6 @@ class _RegisterPageState extends State<RegisterPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // En-tête bleu avec texte blanc
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -136,11 +144,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   ],
                 ),
               ),
-              // Corps avec le message
               Container(
                 padding: const EdgeInsets.all(16),
+                width: double.infinity,
                 decoration: BoxDecoration(
-                  border: isSuccess ? Border.all(color: primaryColor) : Border.all(color: errorColor)
+                    border: isSuccess ? Border.all(color: primaryColor) : Border.all(color: errorColor)
                 ),
                 child: Text(
                   message,
@@ -386,78 +394,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  Expanded(child: Divider(thickness: 1)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('OU'),
-                  ),
-                  Expanded(child: Divider(thickness: 1)),
-                ],
-              ),
               SizedBox(
                 height: 10,
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  OutlinedButton(
-                    onPressed: () {},
-                    style: ButtonStyle(
-                      shape: WidgetStatePropertyAll(
-                        RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: Colors.grey)),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Image.asset(
-                          "assets/images/google.png",
-                          height: 30,
-                        ),
-                        SizedBox(
-                          width: 15,
-                        ),
-                        Text(
-                          "Google",
-                          style: TextStyle(fontSize: 17),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton(
-                    onPressed: () {},
-                    style: ButtonStyle(
-                      shape: WidgetStatePropertyAll(
-                        RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: Colors.grey)),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Image.asset(
-                          "assets/images/facebook.png",
-                          height: 30,
-                        ),
-                        SizedBox(
-                          width: 15,
-                        ),
-                        Text(
-                          "Facebook",
-                          style: TextStyle(fontSize: 17),
-                        )
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    height: 80,
-                  ),
-                ],
-              ),
+
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text('Vous aviez déja un compte ?'),
                 TextButton(

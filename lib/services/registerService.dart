@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:modible_edt/core/constants.dart';
 import 'package:modible_edt/models/loginModel.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:google_sign_in/google_sign_in.dart';
 import '../core/routes.dart';
 import '../models/apiResponse.dart';
 
+//inscript ion avec email et password
 Future<ApiResponse> inscription(LoginModel login) async {
   ApiResponse apiResponse = ApiResponse();
   try {
@@ -52,6 +53,7 @@ Future<ApiResponse> inscription(LoginModel login) async {
   return apiResponse;
 }
 
+//verifier le code de vérification pour confirmer le compte
 Future<ApiResponse> verifyCode(String email, String code) async {
   ApiResponse apiResponse = ApiResponse();
   try {
@@ -105,6 +107,7 @@ Future<ApiResponse> verifyCode(String email, String code) async {
   return apiResponse;
 }
 
+//pour redemander le code de vérification
 Future<ApiResponse> resendVerifyCode(String email) async {
   ApiResponse apiResponse = ApiResponse();
   try {
@@ -156,3 +159,5 @@ Future<ApiResponse> resendVerifyCode(String email) async {
   }
   return apiResponse;
 }
+
+

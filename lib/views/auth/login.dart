@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:modible_edt/core/theme/colors.dart';
 
+import '../../models/apiResponse.dart';
+import '../../services/AuthService.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -13,9 +16,193 @@ class _LoginPageState extends State<LoginPage> {
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-
+  bool _isGoogleLoading = false; // Pour l'état de chargement du bouton Google
+  bool _isFacebookLoading = false;
   bool _textCacher = true;
+  final AuthService _authService = AuthService();
 
+  // Nouvelle méthode pour l'inscription avec Google
+  Future<void> _signInWithGoogle() async {
+    await _authService.signOut();
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    try {
+      ApiResponse response = await _authService.signInWithGoogle();
+
+      setState(() {
+        _isGoogleLoading = false;
+      });
+
+      if (response.success) {
+        // Stocker les informations utilisateur dans le stockage local si nécessaire
+        // Par exemple, utiliser shared_preferences pour stocker le token et les infos utilisateur
+
+        _showCustomSnackBar(
+          context: context,
+          title: 'Bienvenue',
+          message: 'Bienvenue, ${response.data['nom'] ?? 'utilisateur'}',
+          isSuccess: true,
+        );
+
+        // Rediriger vers la page d'accueil avec les données utilisateur
+        Navigator.pushReplacementNamed(
+          context,
+          '/dashboard',
+          arguments: response.data, // Passer les données utilisateur à la page dashboard
+        );
+      } else {
+        // Gérer les différents états d'erreur
+        _showCustomSnackBar(
+          context: context,
+          title: 'Information',
+          message: response.message ?? 'Erreur lors de la connexion',
+          isSuccess: false,
+        );
+
+        // Si l'utilisateur n'existe pas, proposer l'inscription
+        if (response.status == 'NOT_FOUND') {
+          // Optionnel: Navigation vers la page d'inscription
+          Navigator.pushNamed(context, '/register');
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isGoogleLoading = false;
+      });
+      _showCustomSnackBar(
+        context: context,
+        title: 'Erreur',
+        message: 'Erreur: ${e.toString()}',
+        isSuccess: false,
+      );
+    }
+  }
+  // Dans votre _RegisterPageState, ajoutez cette nouvelle méthode:
+  Future<void> _signInWithFacebook() async {
+    setState(() {
+      _isFacebookLoading = true;
+    });
+
+    try {
+      ApiResponse response = await _authService.signInWithFacebook();
+
+      setState(() {
+        _isFacebookLoading = false;
+      });
+
+      if (response.success) {
+        _showCustomSnackBar(
+          context: context,
+          title: 'Information',
+          message: response.message ?? 'Connexion  avec Facebook réussie',
+          isSuccess: true,
+        );
+        Navigator.pushNamed(context, '/dashboard');
+      } else {
+        _showCustomSnackBar(
+          context: context,
+          title: 'Erreur',
+          message: response.message ?? 'Erreur lors de la connexion avec Facebook',
+          isSuccess: false,
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isFacebookLoading = false;
+      });
+      _showCustomSnackBar(
+        context: context,
+        title: 'Erreur',
+        message: 'Erreur: ${e.toString()}',
+        isSuccess: false,
+      );
+    }
+  }
+  // Fonction pour afficher une SnackBar personnalisée (inchangée)
+  void _showCustomSnackBar({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required bool isSuccess,
+  }) {
+    // Votre code de SnackBar existant
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(10),
+        padding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: EdgeInsets.zero,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSuccess ? primaryColor : errorColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(15),
+                    topRight: Radius.circular(15),
+                  ),
+                ),
+                width: double.infinity,
+                child: Row(
+                  children: [
+                    Icon(
+                      isSuccess ? Icons.check_circle : Icons.error,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    border: isSuccess ? Border.all(color: primaryColor) : Border.all(color: errorColor)
+                ),
+                width: double.infinity,
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -202,7 +389,7 @@ class _LoginPageState extends State<LoginPage> {
                   Expanded(child: Divider(thickness: 1)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('OU'),
+                    child: Text('OU CONTINUEZ AVEC'),
                   ),
                   Expanded(child: Divider(thickness: 1)),
                 ],
@@ -214,7 +401,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   OutlinedButton(
-                    onPressed: () {},
+                    onPressed: _isGoogleLoading ? null : _signInWithGoogle,
                     style: ButtonStyle(
                       shape: WidgetStatePropertyAll(
                         RoundedRectangleBorder(
@@ -222,7 +409,16 @@ class _LoginPageState extends State<LoginPage> {
                             side: BorderSide(color: Colors.grey)),
                       ),
                     ),
-                    child: Row(
+                    child: _isGoogleLoading
+                        ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryColor,
+                      ),
+                    )
+                        : Row(
                       children: [
                         Image.asset(
                           "assets/images/google.png",
@@ -239,7 +435,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   OutlinedButton(
-                    onPressed: () {},
+                    onPressed: _isFacebookLoading ? null : _signInWithFacebook,
                     style: ButtonStyle(
                       shape: WidgetStatePropertyAll(
                         RoundedRectangleBorder(
@@ -247,8 +443,16 @@ class _LoginPageState extends State<LoginPage> {
                             side: BorderSide(color: Colors.grey)),
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    child: _isFacebookLoading
+                        ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: primaryColor,
+                      ),
+                    )
+                        : Row(
                       children: [
                         Image.asset(
                           "assets/images/facebook.png",
@@ -265,7 +469,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   SizedBox(
-                    height: 100,
+                    height: 80,
                   ),
                 ],
               ),

@@ -4,11 +4,14 @@ import 'package:modible_edt/views/Onboarding.dart';
 import 'package:modible_edt/views/auth/login.dart';
 import 'package:modible_edt/views/auth/register.dart';
 import 'package:modible_edt/views/auth/verifyCode.dart';
-
-void main() {
-  runApp(const MyApp());
+import 'package:firebase_core/firebase_core.dart';
+import 'package:modible_edt/views/dashboard.dart';
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(MyApp());
 }
-
+//
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -28,6 +31,9 @@ class MyApp extends StatelessWidget {
             final email = settings.arguments as String?;
             return MaterialPageRoute(
                 builder: (_) => VerifyCode(email: email ?? ''));
+          case '/dashboard':
+            final userData = settings.arguments as Map<String, dynamic>?;
+            return MaterialPageRoute(builder: (_) => DashboardPage(userData: userData));
           default:
             return MaterialPageRoute(builder: (_) => OnboardingPage());
         }

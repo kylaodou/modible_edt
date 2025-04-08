@@ -3,12 +3,15 @@ class ApiResponse {
   String? message;
   dynamic data;
   dynamic errors;
+  String? status;
+
 
   ApiResponse({
     this.success = false,
     this.message,
     this.data,
     this.errors,
+    this.status,
   });
 
   @override

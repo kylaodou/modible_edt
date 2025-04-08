@@ -1,0 +1,184 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:modible_edt/models/apiResponse.dart';
+import 'package:modible_edt/models/loginModel.dart';
+import 'package:http/http.dart' as http;
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  // Méthode pour l'a connexion avec Google
+  Future<ApiResponse> signInWithGoogle() async {
+    try {
+      // Déclencher le flux d'authentification Google
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      // Si l'utilisateur annule la connexion
+      if (googleUser == null) {
+        return ApiResponse(
+          success: false,
+          message: 'Connexion Google annulée',
+        );
+      }
+
+      // Obtenir l'email du compte Google
+      final String email = googleUser.email;
+
+      // Vérifier le statut du compte dans votre base de données
+      final ApiResponse statusResponse = await checkUserStatus(email);
+
+      // Si le compte n'existe pas ou n'est pas dans un état valide
+      if (!statusResponse.success) {
+        return statusResponse;
+      }
+
+      // Si nous arrivons ici, le compte est valide - continuer avec l'authentification Firebase
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+      // Combiner les données de Firebase avec les données de votre API
+      final userData = statusResponse.data;
+      userData['uid'] = userCredential.user?.uid;
+      userData['photoURL'] = userCredential.user?.photoURL;
+
+      return ApiResponse(
+        success: true,
+        message: 'Connexion réussie',
+        data: userData,
+      );
+    } on FirebaseAuthException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur d\'authentification Firebase: ${e.message}',
+        errors: {'error': e.code},
+      );
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur lors de la connexion avec Google: ${e.toString()}',
+      );
+    }
+  }
+  // Nouvelle méthode pour l'inscription avec Facebook
+  Future<ApiResponse> signInWithFacebook() async {
+    try {
+      // Déclencher le flux d'authentification Facebook
+      final LoginResult loginResult = await FacebookAuth.instance.login();
+
+      // Vérifier si la connexion a été annulée ou a échoué
+      if (loginResult.status != LoginStatus.success) {
+        return ApiResponse(
+          success: false,
+          message: 'Connexion Facebook annulée ou échouée',
+        );
+      }
+
+      // Obtenir le token d'accès
+      final AccessToken? accessToken = loginResult.accessToken;
+
+      if (accessToken == null) {
+        return ApiResponse(
+          success: false,
+          message: 'Impossible d\'obtenir le token d\'accès Facebook',
+        );
+      }
+
+      // Créer les identifiants Firebase avec le token Facebook
+      final OAuthCredential facebookAuthCredential =
+      FacebookAuthProvider.credential(accessToken.tokenString);
+
+      // Connecter l'utilisateur à Firebase avec les identifiants
+      final UserCredential userCredential =
+      await _auth.signInWithCredential(facebookAuthCredential);
+
+      // Récupérer les informations de l'utilisateur Facebook (optionnel)
+      final userData = await FacebookAuth.instance.getUserData();
+
+      return ApiResponse(
+        success: true,
+        message: 'Connexion avec Facebook réussie',
+        data: {
+          'uid': userCredential.user?.uid,
+          'email': userCredential.user?.email,
+          'displayName': userCredential.user?.displayName,
+          'photoURL': userCredential.user?.photoURL,
+          'facebookData': userData, // Données supplémentaires de Facebook
+        },
+      );
+    } on FirebaseAuthException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur d\'authentification Firebase: ${e.message}',
+        errors: {'error': e.code},
+      );
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur lors de la connexion avec Facebook: ${e.toString()}',
+      );
+    }
+  }
+
+  // Méthode pour se déconnecter (mise à jour pour inclure Facebook)
+  Future<void> signOut() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (e) {
+      print("Erreur de déconnexion Google: $e");
+    }
+
+    try {
+      await FacebookAuth.instance.logOut();
+    } catch (e) {
+      print("Erreur de déconnexion Facebook: $e");
+    }
+
+    await _auth.signOut();
+  }
+
+  Future<ApiResponse> checkUserStatus(String email) async {
+    try {
+      // Appel à votre API Spring pour vérifier le statut de l'utilisateur
+      final response = await http.get(
+        Uri.parse('http://192.168.100.158:8080/api/login/status?email=$email'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ApiResponse(
+          success: true,
+          message: data['message'],
+          data: data['data'],
+        );
+      } else if (response.statusCode == 404) {
+        return ApiResponse(
+          success: false,
+          message: 'Compte non trouvé. Veuillez vous inscrire d\'abord.',
+          status: 'NOT_FOUND',
+        );
+      } else {
+        final data = jsonDecode(response.body);
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de la vérification du compte',
+        );
+      }
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur de connexion: ${e.toString()}',
+      );
+    }
+  }
+}
