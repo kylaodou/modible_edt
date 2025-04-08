@@ -65,11 +65,12 @@ class AuthService {
     } catch (e) {
       return ApiResponse(
         success: false,
-        message: 'Erreur lors de la connexion avec Google: ${e.toString()}',
+        message: 'Erreur  lors de la connexion avec Google: ${e.toString()}',
       );
     }
   }
   // Nouvelle méthode pour l'inscription avec Facebook
+// Méthode pour la connexion avec Facebook
   Future<ApiResponse> signInWithFacebook() async {
     try {
       // Déclencher le flux d'authentification Facebook
@@ -83,7 +84,28 @@ class AuthService {
         );
       }
 
-      // Obtenir le token d'accès
+      // Obtenir les informations de l'utilisateur Facebook
+      final userData = await FacebookAuth.instance.getUserData();
+
+      // Vérifier si l'email est disponible
+      final String? email = userData['email'];
+
+      if (email == null) {
+        return ApiResponse(
+          success: false,
+          message: 'L\'email est requis pour la connexion',
+        );
+      }
+
+      // Vérifier le statut du compte dans votre base de données, comme pour Google
+      final ApiResponse statusResponse = await checkUserStatus(email);
+
+      // Si le compte n'existe pas ou n'est pas dans un état valide
+      if (!statusResponse.success) {
+        return statusResponse;
+      }
+
+      // Si nous arrivons ici, le compte est valide - continuer avec l'authentification Firebase
       final AccessToken? accessToken = loginResult.accessToken;
 
       if (accessToken == null) {
@@ -101,19 +123,15 @@ class AuthService {
       final UserCredential userCredential =
       await _auth.signInWithCredential(facebookAuthCredential);
 
-      // Récupérer les informations de l'utilisateur Facebook (optionnel)
-      final userData = await FacebookAuth.instance.getUserData();
+      // Combiner les données de Firebase avec les données de votre API, comme pour Google
+      final userApiData = statusResponse.data;
+      userApiData['uid'] = userCredential.user?.uid;
+      userApiData['photoURL'] = userCredential.user?.photoURL ?? userData['picture']['data']['url'];
 
       return ApiResponse(
         success: true,
-        message: 'Connexion avec Facebook réussie',
-        data: {
-          'uid': userCredential.user?.uid,
-          'email': userCredential.user?.email,
-          'displayName': userCredential.user?.displayName,
-          'photoURL': userCredential.user?.photoURL,
-          'facebookData': userData, // Données supplémentaires de Facebook
-        },
+        message: 'Connexion réussie',
+        data: userApiData,
       );
     } on FirebaseAuthException catch (e) {
       return ApiResponse(

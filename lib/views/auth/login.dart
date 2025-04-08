@@ -81,6 +81,7 @@ class _LoginPageState extends State<LoginPage> {
   }
   // Dans votre _RegisterPageState, ajoutez cette nouvelle méthode:
   Future<void> _signInWithFacebook() async {
+    await _authService.signOut();
     setState(() {
       _isFacebookLoading = true;
     });
@@ -93,20 +94,36 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       if (response.success) {
+        // Stocker les informations utilisateur dans le stockage local si nécessaire
+        // Par exemple, utiliser shared_preferences pour stocker le token et les infos utilisateur
+
+        _showCustomSnackBar(
+          context: context,
+          title: 'Bienvenue',
+          message: 'Bienvenue, ${response.data['nom'] ?? 'utilisateur'}',
+          isSuccess: true,
+        );
+
+        // Rediriger vers la page d'accueil avec les données utilisateur
+        Navigator.pushReplacementNamed(
+          context,
+          '/dashboard',
+          arguments: response.data, // Passer les données utilisateur à la page dashboard
+        );
+      } else {
+        // Gérer les différents états d'erreur
         _showCustomSnackBar(
           context: context,
           title: 'Information',
-          message: response.message ?? 'Connexion  avec Facebook réussie',
-          isSuccess: true,
-        );
-        Navigator.pushNamed(context, '/dashboard');
-      } else {
-        _showCustomSnackBar(
-          context: context,
-          title: 'Erreur',
-          message: response.message ?? 'Erreur lors de la connexion avec Facebook',
+          message: response.message ?? 'Erreur lors de la connexion',
           isSuccess: false,
         );
+
+        // Si l'utilisateur n'existe pas, proposer l'inscription
+        if (response.status == 'NOT_FOUND') {
+          // Optionnel: Navigation vers la page d'inscription
+          Navigator.pushNamed(context, '/register');
+        }
       }
     } catch (e) {
       setState(() {
