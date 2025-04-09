@@ -12,7 +12,7 @@ Future<ApiResponse> inscription(LoginModel login) async {
   ApiResponse apiResponse = ApiResponse();
   try {
     final response = await http.post(
-      Uri.parse(inscriptionURL),
+      Uri.parse(ApiRoutes.inscriptionURL),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json; charset=UTF-8',
@@ -36,7 +36,8 @@ Future<ApiResponse> inscription(LoginModel login) async {
       case 500:
         final responseData = jsonDecode(response.body);
         apiResponse.success = false;
-        apiResponse.message = responseData['message'] ?? 'Erreur lors de l\'inscription';
+        apiResponse.message =
+            responseData['message'] ?? 'Erreur lors de l\'inscription';
         apiResponse.errors = responseData['errors'];
         break;
       default:
@@ -58,7 +59,7 @@ Future<ApiResponse> verifyCode(String email, String code) async {
   ApiResponse apiResponse = ApiResponse();
   try {
     final response = await http.post(
-      Uri.parse(verifyCodeURL),
+      Uri.parse(ApiRoutes.verifyCodeURL),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json; charset=UTF-8',
@@ -77,7 +78,8 @@ Future<ApiResponse> verifyCode(String email, String code) async {
       case 201:
         final responseData = jsonDecode(response.body);
         apiResponse.success = responseData['success'] ?? true;
-        apiResponse.message = responseData['message'] ?? 'Votre compte a été vérifié avec succès';
+        apiResponse.message =
+            responseData['message'] ?? 'Votre compte a été vérifié avec succès';
 
         // Récupération des données spécifiques à la vérification
         if (responseData['login'] != null) {
@@ -112,7 +114,7 @@ Future<ApiResponse> resendVerifyCode(String email) async {
   ApiResponse apiResponse = ApiResponse();
   try {
     final response = await http.post(
-      Uri.parse(resendVerifyCodeURL),
+      Uri.parse(ApiRoutes.resendVerifyCodeURL),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json; charset=UTF-8',
@@ -130,7 +132,8 @@ Future<ApiResponse> resendVerifyCode(String email) async {
       case 201:
         final responseData = jsonDecode(response.body);
         apiResponse.success = responseData['success'] ?? true;
-        apiResponse.message = responseData['message'] ?? 'Votre compte a été vérifié avec succès';
+        apiResponse.message =
+            responseData['message'] ?? 'Votre compte a été vérifié avec succès';
 
         // Récupération des données spécifiques à la vérification
         if (responseData['login'] != null) {
@@ -159,5 +162,3 @@ Future<ApiResponse> resendVerifyCode(String email) async {
   }
   return apiResponse;
 }
-
-

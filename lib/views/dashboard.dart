@@ -8,6 +8,7 @@ class DashboardPage extends StatefulWidget {
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
+
 class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
@@ -30,7 +31,9 @@ class _DashboardPageState extends State<DashboardPage> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 10),
-            Text(widget.userData != null ? widget.userData!['email'] ?? '' : ''),
+            Text(
+                widget.userData != null ? widget.userData!['email'] ?? '' : ''),
+            Text(widget.userData.toString())
           ],
         ),
       ),

@@ -6,12 +6,18 @@ import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:modible_edt/models/apiResponse.dart';
 import 'package:modible_edt/models/loginModel.dart';
 import 'package:http/http.dart' as http;
+import 'package:modible_edt/services/userSessionService.dart';
 
 import '../core/routes.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final UserSessionService _userSessionService = UserSessionService();
+
+  Future<Map<String, dynamic>?> getCurrentUser() async {
+    return await _userSessionService.getUserData();
+  }
 
   // Méthode pour l'a connexion avec Google
   Future<ApiResponse> signInWithGoogle() async {
@@ -39,19 +45,23 @@ class AuthService {
       }
 
       // Si nous arrivons ici, le compte est valide - continuer avec l'authentification Firebase
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
 
       // Combiner les données de Firebase avec les données de votre API
       final userData = statusResponse.data;
       userData['uid'] = userCredential.user?.uid;
       userData['photoURL'] = userCredential.user?.photoURL;
+
+      await _userSessionService.saveUserSession(userData);
 
       return ApiResponse(
         success: true,
@@ -71,6 +81,7 @@ class AuthService {
       );
     }
   }
+
   // Nouvelle méthode pour l'inscription avec Facebook
 // Méthode pour la connexion avec Facebook
   Future<ApiResponse> signInWithFacebook() async {
@@ -81,9 +92,9 @@ class AuthService {
       // Déclencher le flux d'authentification Facebook avec des options pour forcer la sélection
       final LoginResult loginResult = await FacebookAuth.instance.login(
         permissions: ['email', 'public_profile'],
-        loginBehavior: LoginBehavior.dialogOnly, // Force l'ouverture d'une boîte de dialogue
+        loginBehavior: LoginBehavior
+            .dialogOnly, // Force l'ouverture d'une boîte de dialogue
       );
-
 
       // Vérifier si la connexion a été annulée ou a échoué
       if (loginResult.status != LoginStatus.success) {
@@ -126,16 +137,19 @@ class AuthService {
 
       // Créer les identifiants Firebase avec le token Facebook
       final OAuthCredential facebookAuthCredential =
-      FacebookAuthProvider.credential(accessToken.tokenString);
+          FacebookAuthProvider.credential(accessToken.tokenString);
 
       // Connecter l'utilisateur à Firebase avec les identifiants
       final UserCredential userCredential =
-      await _auth.signInWithCredential(facebookAuthCredential);
+          await _auth.signInWithCredential(facebookAuthCredential);
 
       // Combiner les données de Firebase avec les données de votre API, comme pour Google
       final userApiData = statusResponse.data;
       userApiData['uid'] = userCredential.user?.uid;
-      userApiData['photoURL'] = userCredential.user?.photoURL ?? userData['picture']['data']['url'];
+      userApiData['photoURL'] =
+          userCredential.user?.photoURL ?? userData['picture']['data']['url'];
+
+      await _userSessionService.saveUserSession(userApiData);
 
       return ApiResponse(
         success: true,
@@ -171,13 +185,15 @@ class AuthService {
     }
 
     await _auth.signOut();
+
+    await _userSessionService.clearUserSession();
   }
 
   Future<ApiResponse> checkUserStatus(String email) async {
     try {
       // Appel à votre API Spring pour vérifier le statut de l'utilisateur
       final response = await http.get(
-        Uri.parse('http://192.168.100.158:8080/api/login/status?email=$email'),
+        Uri.parse(ApiRoutes.checkUserStatus(email)),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -198,7 +214,8 @@ class AuthService {
         final data = jsonDecode(response.body);
         return ApiResponse(
           success: false,
-          message: data['message'] ?? 'Erreur lors de la vérification du compte',
+          message:
+              data['message'] ?? 'Erreur lors de la vérification du compte',
         );
       }
     } catch (e) {
@@ -210,13 +227,16 @@ class AuthService {
   }
 
   // Méthode pour l'authentification avec email et mot de passe
-  Future<ApiResponse> signInWithEmailPassword(String email, String password) async {
+  Future<ApiResponse> signInWithEmailPassword(
+      String email, String password) async {
     try {
       // Appel à votre API Spring Boot pour l'authentification
       final response = await http.post(
-        Uri.parse(connexionEmailPasswordURL),
-        headers: {'Content-Type': 'application/json',
-          'Accept': 'application/json; charset=UTF-8',},
+        Uri.parse(ApiRoutes.connexionEmailPasswordURL),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json; charset=UTF-8',
+        },
         body: jsonEncode({
           'email': email,
           'password': password,
@@ -229,7 +249,8 @@ class AuthService {
         // Si l'authentification est réussie, connecter l'utilisateur à Firebase
         try {
           // Authentification Firebase avec email et mot de passe
-          final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          final UserCredential userCredential =
+              await _auth.signInWithEmailAndPassword(
             email: email,
             password: password,
           );
@@ -238,6 +259,8 @@ class AuthService {
           final userData = data['userData'] ?? data['user'];
           userData['uid'] = userCredential.user?.uid;
           userData['photoURL'] = userCredential.user?.photoURL;
+
+          await _userSessionService.saveUserSession(userData);
 
           return ApiResponse(
             success: true,
