@@ -143,13 +143,13 @@ class _ProfilePageState extends State<ProfilePage> {
                               radius: 60,
                               backgroundColor: Colors.grey[200],
                               backgroundImage: widget.userData != null &&
-                                      widget.userData!['photo'] != null
+                                  widget.userData!['photo'] != null
                                   ? NetworkImage(widget.userData!['photo'])
                                   : null,
                               child: widget.userData == null ||
-                                      widget.userData!['photo'] == null
+                                  widget.userData!['photo'] == null
                                   ? const Icon(FontAwesomeIcons.camera,
-                                      color: Colors.grey)
+                                  color: Colors.grey)
                                   : null,
                             ),
                           ),
@@ -226,30 +226,30 @@ class _ProfilePageState extends State<ProfilePage> {
                       "Voir mon profil",
                       Icons.person_outline,
                       const Color(0xFF3E97FF),
-                        (){
-                        Navigator.pushNamed(context, "/profilDetails", arguments: widget.userData);
-                        }
+                          () {
+                        _showProfileDetailsBottomSheet(context);
+                      },
                     ),
                     _buildDivider(),
                     _buildMenuItem(
                       "Paramètres",
                       Icons.settings_outlined,
                       const Color(0xFF2EB67D),
-                            (){}
+                          () {},
                     ),
                     _buildDivider(),
                     _buildMenuItem(
                       "À propos",
                       Icons.info_outline,
                       const Color(0xFFF77527),
-                            (){}
+                          () {},
                     ),
                     _buildDivider(),
                     _buildMenuItem(
                       "Déconnexion",
                       Icons.logout_outlined,
                       const Color(0xFFEB4C86),
-                            (){}
+                          () {},
                     ),
                   ],
                 ),
@@ -298,6 +298,182 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Ligne de séparation
+  Widget _buildDivider() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 1,
+      color: Colors.grey[200],
+    );
+  }
+
+  // Afficher la bottom sheet avec les détails du profil
+  void _showProfileDetailsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Pour occuper plus que la moitié de l'écran
+      backgroundColor: Colors.transparent,
+      builder: (context) => ProfileDetailsBottomSheet(userData: widget.userData),
+    );
+  }
+}
+
+// Nouveau widget pour la bottom sheet de détails de profil
+class ProfileDetailsBottomSheet extends StatelessWidget {
+  final Map<String, dynamic>? userData;
+
+  const ProfileDetailsBottomSheet({Key? key, this.userData}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.7, // 70% de la hauteur de l'écran
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Poignée de la modal
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: 50,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          // Titre
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Détails du profil",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(),
+          // Contenu scrollable
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildInfoItem(
+                      "Matricule",
+                      userData?['matricule'],
+                      Icons.credit_card_outlined,
+                      const Color(0xFFF77527),
+                    ),
+                    _buildDivider(),
+                    _buildInfoItem(
+                      "Téléphone",
+                      userData?['telephone'],
+                      Icons.phone_outlined,
+                      const Color(0xFF3E97FF),
+                    ),
+                    _buildDivider(),
+                    _buildInfoItem(
+                      "Sexe",
+                      userData?['sexe'],
+                      Icons.person_outline,
+                      const Color(0xFF2EB67D),
+                    ),
+                    _buildDivider(),
+                    _buildInfoItem(
+                      "Filière",
+                      userData?['filiere'] ?? 'MIAGE',
+                      Icons.school,
+                      const Color(0xFFEB4C86),
+                    ),
+                    _buildDivider(),
+                    _buildInfoItem(
+                      "Niveau",
+                      userData?['niveau'] ?? 'Licence 2',
+                      Icons.rocket_launch,
+                      const Color(0xFF9966CC),
+                    ),
+                    _buildDivider(),
+                    _buildInfoItem(
+                      "Statut",
+                      userData?['statut'] ?? 'Etudiant',
+                      Icons.person,
+                      const Color(0xFFFFD966),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Widget pour les éléments d'information du profil
+  Widget _buildInfoItem(String label, String value, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
