@@ -9,6 +9,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:modible_edt/views/dashboard.dart';
 import 'package:modible_edt/views/enseignants/dashboard.dart';
 import 'package:modible_edt/views/etudiants/dashboard.dart';
+import 'package:modible_edt/views/etudiants/profileDetailsPage.dart';
 import 'package:modible_edt/views/splash_screen.dart';
 
 void main() async {
@@ -40,6 +41,11 @@ class MyApp extends StatelessWidget {
             final email = settings.arguments as String?;
             return MaterialPageRoute(
                 builder: (_) => VerifyCode(email: email ?? ''));
+          case '/profilDetails':
+            final userData = settings.arguments as Map<String, dynamic>?;
+            return MaterialPageRoute(
+                builder: (_) => ProfileDetailsPage(userData: userData)
+            );
           case '/dashboard':
             final userData = settings.arguments as Map<String, dynamic>?;
 

@@ -77,7 +77,7 @@ class _BottomNavBarWidgetState extends State<BottomNavBarWidget>
       padding: const EdgeInsets.all(15),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(25),
         ),
         child: Padding(
