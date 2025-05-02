@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:modible_edt/core/theme/colors.dart';
 import 'package:modible_edt/widgets/Onboarding_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -199,7 +200,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   vertical: isSmallScreen ? 10 : 15,
                 ),
               ),
-              onPressed: () {
+              onPressed: () async {
+                // Marquer l'onboarding comme vu
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('hasSeenOnboarding', true);
+                
+                // Aller à la dernière page
                 pageController.animateToPage(
                     onboardingData.items.length - 1,
                     duration: const Duration(milliseconds: 400),
@@ -214,10 +220,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
           // Action button avec taille adaptative
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (isLastPage) {
-                print('Commencer l\'application');
-                Navigator.pushNamed(context, '/login');
+                // Marquer l'onboarding comme vu
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('hasSeenOnboarding', true);
+                
+                // Rediriger vers la page de connexion
+                if (mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                }
               } else {
                 pageController.nextPage(
                   duration: const Duration(milliseconds: 400),

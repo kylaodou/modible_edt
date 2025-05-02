@@ -3,11 +3,11 @@ import 'package:lottie/lottie.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:modible_edt/core/theme/colors.dart';
 import 'package:modible_edt/models/apiResponse.dart';
+import 'package:modible_edt/models/userModel.dart';
 import 'package:modible_edt/services/registerService.dart';
 import 'package:modible_edt/services/authService.dart'; // Importez votre nouveau service
 
 
-import '../../models/loginModel.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -32,7 +32,7 @@ class _RegisterPageState extends State<RegisterPage> {
   // Méthode pour l'inscription avec email/password
   Future<void> _inscription() async {
     // Créer un objet LoginModel
-    LoginModel login = LoginModel(
+    UserModel user = UserModel(
       email: _emailController.text,
       password: _passwordController.text,
     );
@@ -41,7 +41,7 @@ class _RegisterPageState extends State<RegisterPage> {
     });
     try {
 
-      ApiResponse response = await inscription(login);
+      ApiResponse response = await inscription(user);
 
       setState(() {
         _isLoading = false;
@@ -56,7 +56,7 @@ class _RegisterPageState extends State<RegisterPage> {
           isSuccess: true,
         );
         // Rediriger vers la page de vérification
-        Navigator.pushNamed(context, '/verifyCode', arguments: login.email);
+        Navigator.pushNamed(context, '/verifyCode', arguments: user.email);
       } else {
         // Afficher un message d'erreur personnalisé
         _showCustomSnackBar(

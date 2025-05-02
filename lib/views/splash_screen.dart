@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:modible_edt/services/AuthService.dart';
 import 'package:modible_edt/core/theme/colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -22,6 +23,10 @@ class _SplashScreenState extends State<SplashScreen> {
     // Ajouter un délai pour afficher le SplashScreen (optionnel)
     await Future.delayed(const Duration(seconds: 2));
 
+    // Récupérer les préférences partagées
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+
     // Vérifier si l'utilisateur est déjà connecté
     final userData = await _authService.getCurrentUser();
 
@@ -33,8 +38,14 @@ class _SplashScreenState extends State<SplashScreen> {
         arguments: userData,
       );
     } else {
-      // L'utilisateur n'est pas connecté, le rediriger vers l'onboarding
-      Navigator.pushReplacementNamed(context, '/');
+      // L'utilisateur n'est pas connecté
+      if (hasSeenOnboarding) {
+        // S'il a déjà vu l'onboarding, le rediriger vers la page de connexion
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        // Sinon, le rediriger vers l'onboarding
+        Navigator.pushReplacementNamed(context, '/');
+      }
     }
   }
 

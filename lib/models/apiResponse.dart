@@ -5,7 +5,6 @@ class ApiResponse {
   dynamic errors;
   String? status;
 
-
   ApiResponse({
     this.success = false,
     this.message,
@@ -13,6 +12,17 @@ class ApiResponse {
     this.errors,
     this.status,
   });
+
+  /// Factory method to create an ApiResponse from a JSON map
+  factory ApiResponse.fromJson(Map<String, dynamic> json) {
+    return ApiResponse(
+      success: json['success'] ?? false,
+      message: json['message'],
+      data: json['data'],
+      errors: json['errors'],
+      status: json['status'],
+    );
+  }
 
   @override
   String toString() {

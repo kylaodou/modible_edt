@@ -1,54 +1,72 @@
 import 'dart:convert';
 
 import 'package:modible_edt/core/constants.dart';
-import 'package:modible_edt/models/loginModel.dart';
+
+import 'package:modible_edt/utils/roles.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../core/routes.dart';
 import '../models/apiResponse.dart';
+import '../models/userModel.dart';
 
-//inscript ion avec email et password
-Future<ApiResponse> inscription(LoginModel login) async {
+//inscription avec email et password
+Future<ApiResponse> inscription(UserModel user) async {
   ApiResponse apiResponse = ApiResponse();
   try {
+    // Vérification des champs obligatoires
+    if (user.email == null || user.email!.isEmpty) {
+      apiResponse.success = false;
+      apiResponse.message = 'L\'email est obligatoire';
+      apiResponse.errors = {'email': 'L\'email est obligatoire'};
+      return apiResponse;
+    }
+
+    if (user.password == null || user.password!.isEmpty) {
+      apiResponse.success = false;
+      apiResponse.message = 'Le mot de passe est obligatoire';
+      apiResponse.errors = {'password': 'Le mot de passe est obligatoire'};
+      return apiResponse;
+    }
+
+    // Définir le rôle par défaut comme ETUDIANT si non spécifié
+    if (user.role == null) {
+      user.role = Roles.ETUDIANT;
+    }
+
+    // Créer un objet Map simple pour l'envoi
+    Map<String, dynamic> requestData = {
+      'email': user.email,
+      'password': user.password,
+      'role': user.role
+    };
+
     final response = await http.post(
       Uri.parse(ApiRoutes.inscriptionURL),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode(login.toJson()),
+      body: jsonEncode(requestData),
     );
 
     print('Status Code: ${response.statusCode}');
     print('Response Body: ${response.body}');
 
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        final responseData = jsonDecode(response.body);
-        apiResponse.data = LoginModel.fromJson(responseData);
-        apiResponse.success = responseData['success'] ?? true;
-        apiResponse.message = responseData['message'] ?? 'Inscription réussie';
-        break;
-      case 400:
-      case 409:
-      case 500:
-        final responseData = jsonDecode(response.body);
-        apiResponse.success = false;
-        apiResponse.message =
-            responseData['message'] ?? 'Erreur lors de l\'inscription';
-        apiResponse.errors = responseData['errors'];
-        break;
-      default:
-        apiResponse.success = false;
-        apiResponse.message = somethingWentWrong;
-        break;
+    final responseData = jsonDecode(response.body);
+    apiResponse.success = responseData['success'] ?? false;
+    apiResponse.message = responseData['message'] ?? 'Une erreur est survenue';
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      if (responseData['data'] != null) {
+        apiResponse.data = UserModel.fromJson(responseData['data']);
+      }
+    } else {
+      apiResponse.errors = responseData['errors'];
     }
   } catch (e) {
     print('Exception: $e');
     apiResponse.success = false;
-    apiResponse.message = 'Erreur de connexion';
+    apiResponse.message = 'Erreur de connexion: ${e.toString()}';
     apiResponse.errors = e.toString();
   }
   return apiResponse;
@@ -58,52 +76,54 @@ Future<ApiResponse> inscription(LoginModel login) async {
 Future<ApiResponse> verifyCode(String email, String code) async {
   ApiResponse apiResponse = ApiResponse();
   try {
+    // Vérification des champs obligatoires
+    if (email.isEmpty) {
+      apiResponse.success = false;
+      apiResponse.message = 'L\'email est obligatoire';
+      apiResponse.errors = {'email': 'L\'email est obligatoire'};
+      return apiResponse;
+    }
+
+    if (code.isEmpty) {
+      apiResponse.success = false;
+      apiResponse.message = 'Le code de vérification est obligatoire';
+      apiResponse.errors = {'code': 'Le code de vérification est obligatoire'};
+      return apiResponse;
+    }
+
+    // Créer un objet Map simple pour l'envoi
+    Map<String, String> requestData = {
+      'email': email,
+      'code': code,
+    };
+
     final response = await http.post(
       Uri.parse(ApiRoutes.verifyCodeURL),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode({
-        'email': email,
-        'code': code,
-      }),
+      body: jsonEncode(requestData),
     );
 
     print('Status Code: ${response.statusCode}');
     print('Response Body: ${response.body}');
 
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        final responseData = jsonDecode(response.body);
-        apiResponse.success = responseData['success'] ?? true;
-        apiResponse.message =
-            responseData['message'] ?? 'Votre compte a été vérifié avec succès';
+    final responseData = jsonDecode(response.body);
+    apiResponse.success = responseData['success'] ?? false;
+    apiResponse.message = responseData['message'] ?? 'Une erreur est survenue';
 
-        // Récupération des données spécifiques à la vérification
-        if (responseData['login'] != null) {
-          apiResponse.data = LoginModel.fromJson(responseData['login']);
-        }
-
-        break;
-      case 400:
-      case 409:
-      case 500:
-        final responseData = jsonDecode(response.body);
-        apiResponse.success = false;
-        apiResponse.message = responseData['message'] ?? 'Erreur';
-        apiResponse.errors = responseData['errors'];
-        break;
-      default:
-        apiResponse.success = false;
-        apiResponse.message = somethingWentWrong;
-        break;
+    if (response.statusCode == 200) {
+      if (responseData['data'] != null) {
+        apiResponse.data = UserModel.fromJson(responseData['data']);
+      }
+    } else {
+      apiResponse.errors = responseData['errors'];
     }
   } catch (e) {
     print('Exception: $e');
     apiResponse.success = false;
-    apiResponse.message = 'Erreur de connexion';
+    apiResponse.message = 'Erreur de connexion: ${e.toString()}';
     apiResponse.errors = e.toString();
   }
   return apiResponse;
@@ -113,51 +133,42 @@ Future<ApiResponse> verifyCode(String email, String code) async {
 Future<ApiResponse> resendVerifyCode(String email) async {
   ApiResponse apiResponse = ApiResponse();
   try {
+    // Vérification des champs obligatoires
+    if (email.isEmpty) {
+      apiResponse.success = false;
+      apiResponse.message = 'L\'email est obligatoire';
+      apiResponse.errors = {'email': 'L\'email est obligatoire'};
+      return apiResponse;
+    }
+
+    // Créer un objet Map simple pour l'envoi
+    Map<String, String> requestData = {
+      'email': email,
+    };
+
     final response = await http.post(
       Uri.parse(ApiRoutes.resendVerifyCodeURL),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode({
-        'email': email,
-      }),
+      body: jsonEncode(requestData),
     );
 
     print('Status Code: ${response.statusCode}');
     print('Response Body: ${response.body}');
 
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        final responseData = jsonDecode(response.body);
-        apiResponse.success = responseData['success'] ?? true;
-        apiResponse.message =
-            responseData['message'] ?? 'Votre compte a été vérifié avec succès';
+    final responseData = jsonDecode(response.body);
+    apiResponse.success = responseData['success'] ?? false;
+    apiResponse.message = responseData['message'] ?? 'Une erreur est survenue';
 
-        // Récupération des données spécifiques à la vérification
-        if (responseData['login'] != null) {
-          apiResponse.data = LoginModel.fromJson(responseData['login']);
-        }
-
-        break;
-      case 400:
-      case 409:
-      case 500:
-        final responseData = jsonDecode(response.body);
-        apiResponse.success = false;
-        apiResponse.message = responseData['message'] ?? 'Erreur';
-        apiResponse.errors = responseData['errors'];
-        break;
-      default:
-        apiResponse.success = false;
-        apiResponse.message = somethingWentWrong;
-        break;
+    if (response.statusCode != 200) {
+      apiResponse.errors = responseData['errors'];
     }
   } catch (e) {
     print('Exception: $e');
     apiResponse.success = false;
-    apiResponse.message = 'Erreur de connexion';
+    apiResponse.message = 'Erreur de connexion: ${e.toString()}';
     apiResponse.errors = e.toString();
   }
   return apiResponse;
