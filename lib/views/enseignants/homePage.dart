@@ -24,11 +24,16 @@ class _HomepageState extends State<Homepage> {
   bool _isLoading = true;
   String _errorMessage = '';
   List<Map<String, dynamic>> _seancesDuJour = [];
+  List<Map<String, dynamic>> _seancesSemaine = []; // Nouvelle liste pour les séances de la semaine
   List<Map<String, dynamic>> _cours = [];
   List<Map<String, dynamic>> _salles = [];
   List<Map<String, dynamic>> _enseignants = [];
+  List<Map<String, dynamic>> _classes = []; // Liste dédiée pour les classes
   String _jourFormate = '';
   UserSessionModel? _userSession;
+  Set<String> _coursIds = {}; // Pour stocker les IDs des cours de la semaine
+  Set<String> _salleIds = {}; // Pour stocker les IDs des salles de la semaine
+  Set<String> _classeIds = {}; // Pour stocker les IDs des classes de la semaine
 
   String _selectedFilter = 'Tous';
 
@@ -81,12 +86,14 @@ class _HomepageState extends State<Homepage> {
 
       // Récupérer l'ID de l'enseignant
       String enseignantId = _userSession!.details.id;
+      dev.log("ID de l'enseignant connecté: $enseignantId");
       
       // Récupérer les séances de l'enseignant pour aujourd'hui
       DateTime now = DateTime.now();
       String dateFormatted = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       
       ApiResponse seancesResponse = await _homeService.getSeancesByEnseignantAndDate(enseignantId, dateFormatted);
+      dev.log("Réponse de getSeancesByEnseignantAndDate: ${seancesResponse.success}, nombre de séances: ${seancesResponse.data?['data']?.length ?? 0}");
 
       if (seancesResponse.success && seancesResponse.data != null) {
         var seances = seancesResponse.data['data'] ?? [];
@@ -94,6 +101,7 @@ class _HomepageState extends State<Homepage> {
           setState(() {
             _seancesDuJour = List<Map<String, dynamic>>.from(seances);
           });
+          dev.log("Nombre de séances du jour: ${_seancesDuJour.length}");
 
           Set<String> coursIds = {};
           Set<String> salleIds = {};
@@ -104,12 +112,16 @@ class _HomepageState extends State<Homepage> {
             if (seance['salleId'] != null) salleIds.add(seance['salleId']);
           }
 
+          // Récupérer les séances de la semaine pour l'enseignant
+          await _loadWeeklySeances(enseignantId);
+
           if (coursIds.isNotEmpty) {
             ApiResponse coursResponse = await _homeService.getCoursByIds(coursIds.toList());
             if (coursResponse.success && coursResponse.data != null) {
               setState(() {
                 _cours = List<Map<String, dynamic>>.from(coursResponse.data);
               });
+              dev.log("Nombre de cours récupérés: ${_cours.length}");
             }
           }
 
@@ -119,6 +131,7 @@ class _HomepageState extends State<Homepage> {
               setState(() {
                 _salles = List<Map<String, dynamic>>.from(sallesResponse.data);
               });
+              dev.log("Nombre de salles récupérées: ${_salles.length}");
             }
           }
 
@@ -128,6 +141,7 @@ class _HomepageState extends State<Homepage> {
               setState(() {
                 _enseignants = List<Map<String, dynamic>>.from(enseignantsResponse.data);
               });
+              dev.log("Nombre d'enseignants récupérés: ${_enseignants.length}");
             }
           }
         }
@@ -136,10 +150,93 @@ class _HomepageState extends State<Homepage> {
       setState(() {
         _errorMessage = 'Erreur: ${e.toString()}';
       });
+      dev.log("Exception dans _loadData: ${e.toString()}", error: e);
     } finally {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+  
+  // Nouvelle méthode pour charger les séances de la semaine
+  Future<void> _loadWeeklySeances(String enseignantId) async {
+    try {
+      // Déterminer les dates de la semaine actuelle
+      DateTime now = DateTime.now();
+      DateTime startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      
+      _seancesSemaine = [];
+      
+      // Pour chaque jour de la semaine
+      for (int i = 0; i < 7; i++) {
+        DateTime currentDay = startOfWeek.add(Duration(days: i));
+        String dateFormatted = "${currentDay.year}-${currentDay.month.toString().padLeft(2, '0')}-${currentDay.day.toString().padLeft(2, '0')}";
+        
+        // Récupérer les séances pour ce jour
+        ApiResponse seancesResponse = await _homeService.getSeancesByEnseignantAndDate(enseignantId, dateFormatted);
+        
+        if (seancesResponse.success && seancesResponse.data != null) {
+          var seances = seancesResponse.data['data'] ?? [];
+          if (seances is List && seances.isNotEmpty) {
+            for (var seance in seances) {
+              _seancesSemaine.add(Map<String, dynamic>.from(seance));
+              
+              // Ajouter les IDs des cours et salles pour les récupérer plus tard
+              if (seance['coursId'] != null) _coursIds.add(seance['coursId']);
+              if (seance['salleId'] != null) _salleIds.add(seance['salleId']);
+              if (seance['classeId'] != null) _classeIds.add(seance['classeId']);
+            }
+          }
+        }
+      }
+      
+      dev.log("Nombre total de séances de la semaine: ${_seancesSemaine.length}");
+      
+      // Récupérer les informations des cours et salles si nécessaire
+      if (_coursIds.isNotEmpty) {
+        ApiResponse coursResponse = await _homeService.getCoursByIds(_coursIds.toList());
+        if (coursResponse.success && coursResponse.data != null) {
+          setState(() {
+            // Ajouter les nouveaux cours sans dupliquer
+            for (var cours in List<Map<String, dynamic>>.from(coursResponse.data)) {
+              if (!_cours.any((c) => c['id'] == cours['id'])) {
+                _cours.add(cours);
+              }
+            }
+          });
+        }
+      }
+      
+      if (_salleIds.isNotEmpty) {
+        ApiResponse sallesResponse = await _homeService.getSallesByIds(_salleIds.toList());
+        if (sallesResponse.success && sallesResponse.data != null) {
+          setState(() {
+            // Ajouter les nouvelles salles sans dupliquer
+            for (var salle in List<Map<String, dynamic>>.from(sallesResponse.data)) {
+              if (!_salles.any((s) => s['id'] == salle['id'])) {
+                _salles.add(salle);
+              }
+            }
+          });
+        }
+      }
+      
+      // Récupérer les informations des classes
+      if (_classeIds.isNotEmpty) {
+        ApiResponse classesResponse = await _homeService.getClassesByIds(_classeIds.toList());
+        if (classesResponse.success && classesResponse.data != null) {
+          setState(() {
+            // Ajouter les nouvelles classes sans dupliquer
+            for (var classe in List<Map<String, dynamic>>.from(classesResponse.data)) {
+              if (!_classes.any((c) => c['id'] == classe['id'])) {
+                _classes.add(classe);
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      dev.log("Erreur lors du chargement des séances de la semaine: ${e.toString()}", error: e);
     }
   }
 
@@ -162,6 +259,24 @@ class _HomepageState extends State<Homepage> {
             (enseignant) => enseignant['id'] == enseignantId,
         orElse: () => {'nom': 'Enseignant inconnu', 'prenom': ''}
     );
+  }
+
+  Map<String, dynamic> _getClasseInfo(String classeId) {
+    try {
+      dev.log("Recherche de la classe avec ID: $classeId");
+      dev.log("Nombre total de classes disponibles: ${_classes.length}");
+      
+      Map<String, dynamic> classe = _classes.firstWhere(
+        (c) => c['id'] == classeId, 
+        orElse: () => {'nom': 'Classe non définie', 'id': classeId}
+      );
+      
+      dev.log("Classe trouvée: ${classe['nom'] ?? 'Non définie'}");
+      return classe;
+    } catch (e) {
+      dev.log("Erreur lors de la récupération de la classe: ${e.toString()}", error: e);
+      return {'nom': 'Classe non définie', 'id': classeId};
+    }
   }
 
   Color _getColorByType(String type) {
@@ -212,33 +327,101 @@ class _HomepageState extends State<Homepage> {
     }
 
     // Regrouper les séances par jour
-    for (var seance in _seancesDuJour) {
+    for (var seance in _seancesSemaine) { // Utiliser _seancesSemaine au lieu de _seancesDuJour
       final jour = seance['jour']?.toString().toLowerCase() ?? '';
       if (jours.contains(jour)) {
-        seancesByDay[jour]!.add(seance);
+        // Ajouter des informations supplémentaires pour l'affichage
+        Map<String, dynamic> seanceEnrichi = {...seance};
+        
+        // Ajouter les informations du cours
+        if (seance['coursId'] != null) {
+          final cours = _getCoursInfo(seance['coursId']);
+          if (cours.isNotEmpty) {
+            seanceEnrichi['course'] = cours['intitule'] ?? 'Cours inconnu';
+            seanceEnrichi['code'] = cours['code'] ?? '';
+          }
+        }
+        
+        // Ajouter les informations de la salle
+        if (seance['salleId'] != null) {
+          final salle = _getSalleInfo(seance['salleId']);
+          if (salle.isNotEmpty) {
+            seanceEnrichi['room'] = '${salle['batiment'] ?? ''} ${salle['numero'] ?? 'Salle inconnue'}'.trim();
+          }
+        }
+        
+        // Ajouter les informations de l a classe
+        if (seance['classeId'] != null) {
+          final classe = _getClasseInfo(seance['classeId']);
+          if (classe.isNotEmpty) {
+            seanceEnrichi['classe'] = classe['nom'] ?? 'Classe inconnue';
+          } else {
+            seanceEnrichi['classe'] = 'Classe inconnue';
+          }
+        } else {
+          seanceEnrichi['classe'] = 'Classe inconnue';
+        }
+        
+        // Ajouter les informations du professeur (l'enseignant connecté)
+        if (_userSession != null && _userSession!.details != null) {
+          seanceEnrichi['professor'] = _userSession!.nomComplet;
+        }
+        
+        seancesByDay[jour]!.add(seanceEnrichi);
       }
     }
 
     return seancesByDay;
   }
 
-  // Récupère tous les cours de la semaine pour l'affichage
   List<Map<String, dynamic>> _getWeeklySeances() {
     final List<String> jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
     List<Map<String, dynamic>> weeklySeances = [];
 
     for (String jour in jours) {
       // Récupérer toutes les séances pour ce jour
-      final seancesDuJour = _seancesDuJour.where(
+      final seancesDuJour = _seancesSemaine.where( // Utiliser _seancesSemaine au lieu de _seancesDuJour
             (s) => s['jour'] != null && s['jour'].toString().toLowerCase() == jour,
       ).toList();
 
       // Ajouter chaque séance avec une information sur le jour
       for (var seance in seancesDuJour) {
-        weeklySeances.add({
+        // Enrichir la séance avec des informations supplémentaires
+        Map<String, dynamic> seanceEnrichi = {
           ...seance,
           'jourFormatted': jour[0].toUpperCase() + jour.substring(1).toLowerCase(),
-        });
+        };
+        
+        // Ajouter les informations du cours
+        if (seance['coursId'] != null) {
+          final cours = _getCoursInfo(seance['coursId']);
+          if (cours.isNotEmpty) {
+            seanceEnrichi['course'] = cours['intitule'] ?? 'Cours inconnu';
+            seanceEnrichi['code'] = cours['code'] ?? '';
+          }
+        }
+        
+        // Ajouter les informations de la salle
+        if (seance['salleId'] != null) {
+          final salle = _getSalleInfo(seance['salleId']);
+          if (salle.isNotEmpty) {
+            seanceEnrichi['room'] = '${salle['batiment'] ?? ''} ${salle['numero'] ?? 'Salle inconnue'}'.trim();
+          }
+        }
+        
+        // Ajouter les informations de la classe
+        if (seance['classeId'] != null) {
+          final classe = _getClasseInfo(seance['classeId']);
+          if (classe.isNotEmpty) {
+            seanceEnrichi['classe'] = classe['nom'] ?? 'Classe inconnue';
+          } else {
+            seanceEnrichi['classe'] = 'Classe inconnue';
+          }
+        } else {
+          seanceEnrichi['classe'] = 'Classe inconnue';
+        }
+        
+        weeklySeances.add(seanceEnrichi);
       }
     }
 
@@ -265,7 +448,7 @@ class _HomepageState extends State<Homepage> {
                 children: [// g
                   const SizedBox(height: 10),
                   const Text(
-                    'Aujourd\'hui',
+                    'Aujo urd\'hui',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
@@ -340,6 +523,7 @@ class _HomepageState extends State<Homepage> {
                                 if (enseignantNom.isNotEmpty) enseignantNom = 'Prof: $enseignantNom';
                               }
                               final salleNom = '${salle['batiment'] ?? ''} ${salle['numero'] ?? 'Salle inconnue'}'.trim();
+                              final classe = _getClasseInfo(seance['classeId'] ?? '');
 
                               return Column(
                                 children: [
@@ -347,7 +531,8 @@ class _HomepageState extends State<Homepage> {
                                       seance['creneau'] ?? '',
                                       cours['intitule'] ?? 'Cours inconnu',
                                       salleNom.isEmpty ? 'Salle inconnue' : salleNom,
-                                      enseignantNom.isEmpty ? 'Enseignant inconnu' : enseignantNom
+                                      enseignantNom.isEmpty ? 'Enseignant inconnu' : enseignantNom,
+                                      classe['nom'] ?? 'Classe inconnue'
                                   ),
                                   if (todaySeances.indexOf(seance) < todaySeances.length - 1)
                                     const Divider(color: Color(0xFF51C3FE)),
@@ -424,7 +609,7 @@ class _HomepageState extends State<Homepage> {
                           return Padding(
                             padding: const EdgeInsets.only(right: 16.0),
                             child: Container(
-                              width: 240, // Large ur augmentée pour éviter les débordements
+                              width: 240, // Largeur augmentée pour éviter les débordements
                               child: _buildWeeklyScheduleCard(
                                 jourFormatted,
                                 DateFormat('dd/MM').format(DateTime.now()), // Date actuelle simplifiée
@@ -432,12 +617,14 @@ class _HomepageState extends State<Homepage> {
                                   final cours = _getCoursInfo(seance['coursId'] ?? '');
                                   final salle = _getSalleInfo(seance['salleId'] ?? '');
                                   final enseignant = _getEnseignantInfo(cours['enseignantId'] ?? '');
+                                  final classe = _getClasseInfo(seance['classeId'] ?? '');
 
                                   return {
                                     'time': seance['creneau'] ?? '',
                                     'course': cours['intitule'] ?? 'Cours inconnu',
                                     'room': "${salle['batiment'] ?? ''} ${salle['numero'] ?? ''}".trim(),
                                     'professor': "${enseignant['prenom'] ?? ''} ${enseignant['nom'] ?? ''}".trim(),
+                                    'classe': classe['nom'] ?? 'Classe inconnue',
                                   };
                                 }).toList(),
                               ),
@@ -457,7 +644,7 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  Widget _buildScheduleItem(String time, String course, String room, String professor) {
+  Widget _buildScheduleItem(String time, String course, String room, String professor, String classe) {
     // Parse the time to display it better
     final String startTime = time.split(' - ')[0];
     final String endTime = time.contains(' - ') ? time.split(' - ')[1] : '';
@@ -571,11 +758,7 @@ class _HomepageState extends State<Homepage> {
                             color: cardColor.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            Icons.school,
-                            size: 14,
-                            color: cardColor,
-                          ),
+                          child: const Icon(Icons.school, color: primaryColor, size: 14),
                         ),
                       ],
                     ),
@@ -594,7 +777,7 @@ class _HomepageState extends State<Homepage> {
                           // Room info
                           Row(
                             children: [
-                              Icon(Icons.location_on, size: 16, color: cardColor),
+                              const Icon(Icons.location_on, size: 16, color: primaryColor),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -614,7 +797,7 @@ class _HomepageState extends State<Homepage> {
                           // Professor info
                           Row(
                             children: [
-                              Icon(Icons.person, size: 16, color: cardColor),
+                              const Icon(Icons.person, size: 16, color: primaryColor),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -625,6 +808,27 @@ class _HomepageState extends State<Homepage> {
                                     fontSize: 13,
                                   ),
                                   overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Classe info
+                          Row(
+                            children: [
+                              const Icon(Icons.groups, size: 16, color: primaryColor),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  classe,
+                                  style: TextStyle(
+                                    color: Colors.blue[700],
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
                                 ),
                               ),
                             ],
@@ -715,11 +919,11 @@ class _HomepageState extends State<Homepage> {
     // Enhanced blue color palette for the app theme
     final Map<String, Color> dayColors = {
       'Lundi': const Color(0xFF51C3FE),     // Primary Blue
-      'Mardi': const Color(0xFF4E6CFF),     // Royal Blue
+      'Mardi': const Color(0xFFFFB24E),     // Royal Blue
       'Mercredi': const Color(0xFF2196F3),  // Material Blue
-      'Jeudi': const Color(0xFF1976D2),     // Darker Blue
-      'Vendredi': const Color(0xFF0D47A1),  // Deep Blue
-      'Samedi': const Color(0xFF01579B),    // Light Blue 900
+      'Jeudi': const Color(0xFFF82DCF),     // Darker Blue
+      'Vendredi': const Color(0xFFFDA70E),  // Deep Blue
+      'Samedi': const Color(0xFF4FB56C),    // Light Blue 900
       'Dimanche': const Color(0xFF0288D1),  // Light Blue 700
     };
 
@@ -806,7 +1010,7 @@ class _HomepageState extends State<Homepage> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
+                        shape: BoxShape.circle,
                       ),
                       child: Icon(cardIcon, color: Colors.white, size: 16),
                     ),
@@ -1161,10 +1365,33 @@ class _HomepageState extends State<Homepage> {
                                         ),
                                       ],
                                     ),
-                                  if ((item['room'] ?? '').toString().isNotEmpty && (item['professor'] ?? '').toString().isNotEmpty)
+                                  if ((item['room'] ?? '').toString().isNotEmpty)
                                     const SizedBox(height: 6),
 
-                                  // Professor info
+                                  // Classe info
+                                  if ((item['classe'] ?? '').toString().isNotEmpty)
+                                    Row(
+                                      children: [
+                                        Icon(Icons.groups, size: 14, color: cardColor),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            (item['classe'] ?? '').toString(),
+                                            style: TextStyle(
+                                              color: Colors.blue[700],
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  if ((item['classe'] ?? '').toString().isNotEmpty && (item['professor'] ?? '').toString().isNotEmpty)
+                                    const SizedBox(height: 6),
+
+                                  // Professo r info
                                   if ((item['professor'] ?? '').toString().isNotEmpty)
                                     Row(
                                       children: [
@@ -1193,7 +1420,8 @@ class _HomepageState extends State<Homepage> {
                 },
               ),
             ),
-        ],
+          ],
+
       ),
     );
   }

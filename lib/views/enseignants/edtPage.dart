@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -31,6 +32,7 @@ class _EdtPageState extends State<EdtPage> {
   List<Map<String, dynamic>> _cours = [];
   List<Map<String, dynamic>> _salles = [];
   List<Map<String, dynamic>> _enseignants = [];
+  List<Map<String, dynamic>> _classes = [];
   String _errorMessage = '';
   bool _estDelegue = false;
 
@@ -40,10 +42,52 @@ class _EdtPageState extends State<EdtPage> {
   String? _selectedCours;
   bool _showFilters = false;
 
+  // Cache pour stocker les informations des classes déjà récupérées
+  final Map<String, Map<String, dynamic>> _classeCache = {};
+
+  // Méthode pour récupérer les informations d'une classe avec cache
+  Future<Map<String, dynamic>> _getClasseInfo(String? classeId) async {
+    if (classeId == null || classeId.isEmpty) {
+      dev.log("ClasseId est null ou vide");
+      return {};
+    }
+
+    // Vérifier si la classe est déjà dans le cache
+    if (_classeCache.containsKey(classeId)) {
+      dev.log("Classe $classeId trouvée dans le cache");
+      return _classeCache[classeId]!;
+    }
+
+    // Vérifier si la classe est déjà dans la liste des classes chargées
+    final classeFromList = _classes.firstWhere(
+      (c) => c['id'] == classeId,
+      orElse: () => {},
+    );
+
+    if (classeFromList.isNotEmpty) {
+      dev.log("Classe $classeId trouvée dans la liste des classes");
+      _classeCache[classeId] = classeFromList;
+      return classeFromList;
+    }
+
+    // Si la classe n'est pas dans le cache ni dans la liste, faire un appel API
+    dev.log("Récupération de la classe $classeId depuis l'API");
+    final response = await _seanceService.getClasseById(classeId);
+    
+    if (response.success && response.data != null) {
+      final classeData = response.data;
+      _classeCache[classeId] = classeData;
+      return classeData;
+    } else {
+      dev.log("Erreur lors de la récupération de la classe: ${response.message}");
+      return {};
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _calculateWeekDates(); // Initialiser _weekDates immédiatement
+    _calculateWeekDates(); //  Initialiser _weekDates immédiatement
     initializeDateFormatting('fr_FR', null).then((_) {
       _checkUserRole();
       _loadData();
@@ -277,7 +321,7 @@ class _EdtPageState extends State<EdtPage> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Exception: $e';
+        _errorMessage = 'Erreur: $e';
       });
       _showErrorSnackBar(_errorMessage);
     }
@@ -431,20 +475,24 @@ class _EdtPageState extends State<EdtPage> {
       String debutFormatted = "${_weekDates.first.year}-${_weekDates.first.month.toString().padLeft(2, '0')}-${_weekDates.first.day.toString().padLeft(2, '0')}";
       String finFormatted = "${_weekDates.last.year}-${_weekDates.last.month.toString().padLeft(2, '0')}-${_weekDates.last.day.toString().padLeft(2, '0')}";
 
+      dev.log("Récupération des séances pour l'enseignant ${userSession.details.id} du $debutFormatted au $finFormatted");
+
       // Récupérer les séances de l'enseignant pour la période spécifiée
       final response = await _seanceService.getSeancesByEnseignantAndDateRange(
-        userSession.details.id,
-        debutFormatted,
-        finFormatted
+          userSession.details.id,
+          debutFormatted,
+          finFormatted
       );
 
       if (response.success) {
+        dev.log("Nombre de séances récupérées: ${(response.data['data'] ?? []).length}");
         setState(() => _seances = List<Map<String, dynamic>>.from(response.data['data'] ?? []));
         await _loadReferenceData();
       } else {
         setState(() => _errorMessage = response.message ?? 'Erreur lors de la récupération des séances');
       }
     } catch (e) {
+      dev.log("Exception dans _loadData: ${e.toString()}", error: e);
       setState(() => _errorMessage = 'Erreur: ${e.toString()}');
     } finally {
       setState(() => _isLoading = false);
@@ -452,15 +500,46 @@ class _EdtPageState extends State<EdtPage> {
   }
 
   Future<void> _loadReferenceData() async {
+    dev.log("Chargement des données de référence");
+
+    // Récupérer les IDs des classes à partir des séances
+    Set<String> classeIds = {};
+    for (var seance in _seances) {
+      if (seance['classeId'] != null) {
+        classeIds.add(seance['classeId']);
+        dev.log("ClasseID trouvé dans une séance: ${seance['classeId']}");
+      }
+    }
+
+    dev.log("Nombre de classeIds trouvés: ${classeIds.length}");
+
     final responses = await Future.wait([
       _seanceService.getAllSalles(),
       _seanceService.getAllCours(),
       _seanceService.getAllEnseignants(),
+      classeIds.isNotEmpty ? _seanceService.getClassesByIds(classeIds.toList()) : _seanceService.getAllClasses(),
     ]);
 
-    if (responses[0].success) setState(() => _salles = List<Map<String, dynamic>>.from(responses[0].data));
-    if (responses[1].success) setState(() => _cours = List<Map<String, dynamic>>.from(responses[1].data));
-    if (responses[2].success) setState(() => _enseignants = List<Map<String, dynamic>>.from(responses[2].data));
+    if (responses[0].success) {
+      setState(() => _salles = List<Map<String, dynamic>>.from(responses[0].data));
+      dev.log("Salles récupérées: ${_salles.length}");
+    }
+    if (responses[1].success) {
+      setState(() => _cours = List<Map<String, dynamic>>.from(responses[1].data));
+      dev.log("Cours récupérés: ${_cours.length}");
+    }
+    if (responses[2].success) {
+      setState(() => _enseignants = List<Map<String, dynamic>>.from(responses[2].data));
+      dev.log("Enseignants récupérés: ${_enseignants.length}");
+    }
+    if (responses[3].success) {
+      setState(() => _classes = List<Map<String, dynamic>>.from(responses[3].data));
+      dev.log("Classes récupérées: ${_classes.length}");
+      // Afficher les IDs des classes récupérées pour le débogage
+      for (var classe in _classes) {
+        dev.log("Classe ID: ${classe['id']}, Nom: ${classe['nom']}");
+      }
+    }
   }
 
   void _resetFilters() => setState(() {
@@ -471,21 +550,42 @@ class _EdtPageState extends State<EdtPage> {
   });
 
   List<Map<String, dynamic>> _getFilteredSeances() {
-    return _seances.where((seance) {
+    dev.log("Filtrage des séances. Nombre total: ${_seances.length}");
+    dev.log("Date sélectionnée: ${_selectedDate.weekday} (${DateFormat('EEEE', 'fr_FR').format(_selectedDate)})");
+    
+    final filteredSeances = _seances.where((seance) {
       final jour = seance['jour']?.toString().toLowerCase() ?? '';
+      dev.log("Séance jour: $jour");
+      
+      // Mapping français des jours de la semaine
       final joursMap = {
-        'lundi': 1, 'mardi': 2, 'mercredi': 3, 'jeudi': 4,
-        'vendredi': 5, 'samedi': 6, 'dimanche': 7
+        'lundi': 1, 
+        'mardi': 2, 
+        'mercredi': 3, 
+        'jeudi': 4,
+        'vendredi': 5, 
+        'samedi': 6, 
+        'dimanche': 7
       };
-      final jourSeance = joursMap[jour] ?? 0;
-
-      return jourSeance == _selectedDate.weekday &&
-          (_selectedType == null || seance['type'] == _selectedType) &&
-          (_selectedSalle == null || seance['salleId'] == _selectedSalle) &&
-          (_selectedCours == null || seance['coursId'] == _selectedCours) &&
-          (_selectedEnseignant == null ||
-              (_cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {})['enseignantId'] == _selectedEnseignant));
+      
+      final jourSeance = joursMap[jour];
+      dev.log("Jour séance mappé: $jourSeance, jour sélectionné: ${_selectedDate.weekday}");
+      
+      final bool jourMatch = jourSeance == _selectedDate.weekday;
+      final bool typeMatch = _selectedType == null || seance['type'] == _selectedType;
+      final bool salleMatch = _selectedSalle == null || seance['salleId'] == _selectedSalle;
+      final bool coursMatch = _selectedCours == null || seance['coursId'] == _selectedCours;
+      
+      final bool enseignantMatch = _selectedEnseignant == null ||
+          (_cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {})['enseignantId'] == _selectedEnseignant);
+      
+      dev.log("Séance ${seance['id']}: jourMatch=$jourMatch, typeMatch=$typeMatch, salleMatch=$salleMatch, coursMatch=$coursMatch, enseignantMatch=$enseignantMatch");
+      
+      return jourMatch && typeMatch && salleMatch && coursMatch && enseignantMatch;
     }).toList();
+    
+    dev.log("Nombre de séances après filtrage: ${filteredSeances.length}");
+    return filteredSeances;
   }
 
   @override
@@ -711,14 +811,36 @@ class _EdtPageState extends State<EdtPage> {
   }
 
   Widget _buildEventCard(Map<String, dynamic> seance) {
+    // Récupérer les informations nécessaires
     final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
     final salle = _salles.firstWhere((s) => s['id'] == seance['salleId'], orElse: () => {});
     final enseignant = _enseignants.firstWhere((e) => e['id'] == cours['enseignantId'], orElse: () => {});
+
+    // Récupération de l'ID de la classe avec log détaillé
+    String? classeId = seance['classeId'];
+    dev.log("Recherche de la classe avec ID: $classeId");
+    dev.log("Nombre total de classes disponibles: ${_classes.length}");
 
     final type = seance['type'] ?? 'COURS';
     final color = _getColorByType(type);
     final icon = _getIconByType(type);
     final bool fait = seance['fait'] == true;
+    final String statut = seance['statut'] ?? 'PLANIFIÉ';
+    final String justification = seance['justification'] ?? '';
+
+    // Vérifier si la séance est passée (date antérieure à aujourd'hui)
+    bool estPassee = false;
+    if (seance['jour'] != null && seance['debutSemaine'] != null) {
+      final String jour = seance['jour'].toLowerCase();
+      final List<String> jours = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+      final int jourIndex = jours.indexOf(jour);
+
+      if (jourIndex != -1) {
+        final DateTime debutSemaine = DateTime.parse(seance['debutSemaine'].toString().split('T')[0]);
+        final DateTime dateSeance = debutSemaine.add(Duration(days: jourIndex));
+        estPassee = dateSeance.isBefore(DateTime.now().subtract(const Duration(days: 1)));
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -733,8 +855,10 @@ class _EdtPageState extends State<EdtPage> {
             spreadRadius: 2,
           )
         ],
-        border: fait
+        border: statut == 'CONFIRMÉ'
             ? Border.all(color: Colors.green.withOpacity(0.5), width: 2)
+            : statut == 'ANNULÉ'
+            ? Border.all(color: Colors.red.withOpacity(0.5), width: 2)
             : Border.all(color: color.withOpacity(0.2), width: 1),
       ),
       child: Column(
@@ -747,8 +871,10 @@ class _EdtPageState extends State<EdtPage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  color,
-                  color.withOpacity(0.8),
+                  statut == 'CONFIRMÉ' ? Colors.green :
+                  statut == 'ANNULÉ' ? Colors.red : color,
+                  statut == 'CONFIRMÉ' ? Colors.green.withOpacity(0.8) :
+                  statut == 'ANNULÉ' ? Colors.red.withOpacity(0.8) : color.withOpacity(0.8),
                 ],
               ),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -765,7 +891,12 @@ class _EdtPageState extends State<EdtPage> {
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
                     border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 24),
+                  child: Icon(
+                      statut == 'CONFIRMÉ' ? Icons.check_circle :
+                      statut == 'ANNULÉ' ? Icons.cancel : icon,
+                      color: Colors.white,
+                      size: 24
+                  ),
                 ),
                 const SizedBox(width: 16),
                 // Titre et code du cours
@@ -788,7 +919,7 @@ class _EdtPageState extends State<EdtPage> {
                               maxLines: 2,
                             ),
                           ),
-                          if (fait)
+                          if (statut == 'CONFIRMÉ')
                             Container(
                               margin: const EdgeInsets.only(left: 8),
                               padding: const EdgeInsets.all(4),
@@ -797,6 +928,16 @@ class _EdtPageState extends State<EdtPage> {
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.check, color: Colors.white, size: 18),
+                            ),
+                          if (statut == 'ANNULÉ')
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white, size: 18),
                             ),
                         ],
                       ),
@@ -810,7 +951,7 @@ class _EdtPageState extends State<EdtPage> {
                           border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
                         ),
                         child: Text(
-                          '${cours['code']} - $type',
+                          '${cours['code'] ?? ''} - $type',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -830,8 +971,125 @@ class _EdtPageState extends State<EdtPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Indicateur de statut si le cours est fait
-                if (fait) _buildStatusIndicator(),
+                // Indicateur de statut
+                if (statut == 'CONFIRMÉ')
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.green.shade500,
+                          Colors.green.shade600,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Cours confirmé',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                if (statut == 'ANNULÉ')
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.red.shade500,
+                          Colors.red.shade600,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.cancel, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Cours annulé',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Affichage de la justification si le cours est annulé
+                if (statut == 'ANNULÉ' && justification.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.red[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red[200]!),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 18, color: Colors.red[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Justification:',
+                              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red[700], fontSize: 15),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          justification,
+                          style: TextStyle(color: Colors.grey[800], fontSize: 14, height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
 
                 // Affichage du commentaire s'il existe
                 if (seance['commentaire'] != null && seance['commentaire'].toString().isNotEmpty)
@@ -874,21 +1132,80 @@ class _EdtPageState extends State<EdtPage> {
 
                 // Informations sur le cours
                 const SizedBox(height: 6),
-                _buildInfoRow(Icons.location_on, salle.isNotEmpty ? '${salle['batiment']} ${salle['numero']}' : 'Salle non définie'),
+                _buildInfoRow(Icons.location_on, salle.isNotEmpty ? '${salle['batiment'] ?? ''} ${salle['numero'] ?? ''}' : 'Salle non définie'),
                 _buildInfoRow(Icons.access_time, seance['creneau'] ?? 'Horaire non défini'),
-                if (enseignant.isNotEmpty) _buildInfoRow(Icons.person, '${enseignant['prenom']} ${enseignant['nom']}'),
+                
+                // Utiliser FutureBuilder pour charger les informations de la classe de manière asynchrone
+                FutureBuilder<Map<String, dynamic>>(
+                  future: _getClasseInfo(classeId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return _buildInfoRow(
+                        Icons.groups,
+                        'Chargement de la classe...',
+                        color: Colors.blue[700]
+                      );
+                    } else if (snapshot.hasError) {
+                      dev.log("Erreur lors du chargement de la classe: ${snapshot.error}");
+                      return _buildInfoRow(
+                        Icons.error_outline,
+                        'Erreur de chargement',
+                        color: Colors.red[700]
+                      );
+                    } else {
+                      final classe = snapshot.data ?? {};
+                      return _buildInfoRow(
+                        Icons.groups,
+                        classe.isNotEmpty ? '${classe['nom'] ?? ''}' : 'Classe non définie',
+                        color: Colors.blue[700]
+                      );
+                    }
+                  },
+                ),
+                
+                if (enseignant.isNotEmpty) _buildInfoRow(Icons.person, '${enseignant['prenom'] ?? ''} ${enseignant['nom'] ?? ''}'),
 
-                // Bout ons d'action pour  les délégués - seulement pour aujourd'hui et si le cours n'est pas fait
-                if (_estDelegue && !fait && _isToday())
+                // Boutons d'action pour confirmer ou annuler le cours - seulement si le cours n'est pas passé
+                if (!estPassee && statut != 'CONFIRMÉ' && statut != 'ANNULÉ')
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
-                    child: _buildActionButton(seance),
-                  ),
-                // Si le cours est fait et que l'utilisateur est délégué, afficher des boutons pour modifier ou réinitialiser
-                if (_estDelegue && fait)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: _buildModifyStatusButton(seance),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _confirmerSeance(seance),
+                            icon: const Icon(Icons.check_circle, color: Colors.white),
+                            label: const Text('Confirmer ma venue'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 3,
+                              shadowColor: Colors.green.withOpacity(0.4),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _annulerSeance(seance),
+                            icon: const Icon(Icons.cancel, color: Colors.white),
+                            label: const Text('Annuler le cours'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 3,
+                              shadowColor: Colors.red.withOpacity(0.4),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -946,33 +1263,24 @@ class _EdtPageState extends State<EdtPage> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String text) {
-    final Color iconColor = const Color(0xFF51C3FE);
-
+  Widget _buildInfoRow(IconData icon, String text, {Color? color}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: iconColor.withOpacity(0.3), width: 1),
-            ),
-            child: Icon(icon, size: 18, color: iconColor),
-          ),
+          Icon(icon, size: 18, color: color ?? Colors.grey[700]),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                color: Colors.grey[800],
                 fontSize: 15,
+                color: color ?? Colors.grey[800],
                 height: 1.3,
-                fontWeight: FontWeight.w500,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
         ],
@@ -1047,4 +1355,215 @@ class _EdtPageState extends State<EdtPage> {
     );
   }
 
+  void _confirmerSeance(Map<String, dynamic> seance) async {
+    try {
+      final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
+      final String coursTitle = cours['intitule'] ?? 'Cours';
+
+      final response = await _seanceFaiteService.confirmerSeance(seance['id']);
+
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cours confirmé',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        coursTitle,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            margin: const EdgeInsets.all(8),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        _loadData();
+      } else {
+        _showErrorSnackBar(response.message ?? 'Une erreur est survenue');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Exception: $e');
+    }
+  }
+
+  void _annulerSeance(Map<String, dynamic> seance) async {
+    try {
+      final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
+      final String coursTitle = cours['intitule'] ?? 'Cours';
+
+      // Afficher une boîte de dialogue pour demander une justification
+      final TextEditingController justificationController = TextEditingController();
+
+      final bool? result = await showDialog<bool>(
+        context: context,
+        builder: (context) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 5,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.cancel, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Annuler le cours',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            coursTitle,
+                            style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      icon: const Icon(Icons.close),
+                      splashRadius: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Veuillez fournir une justification pour l\'annulation de ce cours :',
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: justificationController,
+                  decoration: InputDecoration(
+                    hintText: 'Exemple : Absence pour raison médicale...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Annuler'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.grey[700],
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (justificationController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Veuillez fournir une justification'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.pop(context, true);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Confirmer l\'annulation'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (result == true) {
+        final response = await _seanceService.annulerSeance(seance['id'], justificationController.text);
+
+        if (response.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.cancel, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Cours annulé',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          coursTitle,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              margin: const EdgeInsets.all(8),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          _loadData();
+        } else {
+          _showErrorSnackBar(response.message ?? 'Une erreur est survenue');
+        }
+      }
+    } catch (e) {
+      _showErrorSnackBar('Exception: $e');
+    }
+  }
 }

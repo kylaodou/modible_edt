@@ -205,8 +205,10 @@ class _DashboardPageState extends State<EnseignantDashboardPage> {
                       ),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
+                        Container(
+                          constraints: BoxConstraints(maxWidth: 200),
                           child: Text(
                             // Montrer le nom seulement sur la page d'accueil
                             _indexcourrant == 0 ? name : _pageTitles[_indexcourrant],

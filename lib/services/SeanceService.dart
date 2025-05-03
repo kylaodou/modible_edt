@@ -8,7 +8,7 @@ import 'dart:developer' as dev;
 class SeanceService {
   final UserSessionService _userSessionService = UserSessionService();
 
-  // Récupérer l'emploi du temps pour une classe spécifique et une semaine donnée
+  // Récupérer l'emploi du t emps pour une classe spécifique et une semaine donnée
   Future<ApiResponse> getEmploiDuTempsParClasseEtSemaine(
       String classeId, DateTime debutSemaine, DateTime finSemaine) async {
     try {
@@ -49,12 +49,16 @@ class SeanceService {
   // Récupérer l'emploi du temps pour un enseignant spécifique
   Future<ApiResponse> getSeancesByEnseignant(String enseignantId) async {
     try {
+      dev.log("Appel API: /seances/enseignant/$enseignantId");
       final response = await http.get(
         Uri.parse('${ApiRoutes.baseURL}/seances/enseignant/$enseignantId'),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
         },
       );
+
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
 
       final data = jsonDecode(utf8.decode(response.bodyBytes));
 
@@ -72,6 +76,7 @@ class SeanceService {
         );
       }
     } catch (e) {
+      dev.log("Exception dans getSeancesByEnseignant: ${e.toString()}", error: e);
       return ApiResponse(
         success: false,
         message: 'Erreur: ${e.toString()}',
@@ -79,32 +84,70 @@ class SeanceService {
     }
   }
 
-  // Récupérer l'emploi du temps pour un enseignant spécifique et une plage de dates
+  // Récupérer les séances d'un enseignant pour une période donnée
   Future<ApiResponse> getSeancesByEnseignantAndDateRange(String enseignantId, String startDate, String endDate) async {
     try {
+      dev.log("Appel API: /seances/enseignant/$enseignantId");
       final response = await http.get(
-        Uri.parse('${ApiRoutes.baseURL}/seances/enseignant/$enseignantId/dates/$startDate/$endDate'),
+        Uri.parse('${ApiRoutes.baseURL}/seances/enseignant/$enseignantId'),
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
         },
       );
 
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
+
       final data = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200 && data['success'] == true) {
+        // Filtrer les séances pour ne garder que celles dans la plage de dates
+        List<Map<String, dynamic>> seances = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        
+        // Convertir les dates pour la comparaison
+        DateTime start = DateTime.parse(startDate);
+        DateTime end = DateTime.parse(endDate);
+        
+        dev.log("Filtrage des séances du $startDate au $endDate");
+        
+        // Filtrer les séances en fonction de la date
+        List<Map<String, dynamic>> filteredSeances = seances.where((seance) {
+          try {
+            // Récupérer la date de la séance (format "yyyy-MM-dd")
+            String jour = seance['jour'];
+            if (jour == null || jour.isEmpty) return false;
+            
+            DateTime seanceDate = DateTime.parse(jour);
+            
+            // Vérifier si la date est dans la plage
+            bool isInRange = (seanceDate.isAtSameMomentAs(start) || seanceDate.isAfter(start)) && 
+                             (seanceDate.isAtSameMomentAs(end) || seanceDate.isBefore(end));
+            
+            dev.log("Séance du $jour - Dans la plage: $isInRange");
+            
+            return isInRange;
+          } catch (e) {
+            dev.log("Erreur lors du filtrage d'une séance: ${e.toString()}", error: e);
+            return false;
+          }
+        }).toList();
+        
+        dev.log("Nombre de séances après filtrage: ${filteredSeances.length}");
+        
         return ApiResponse(
           success: true,
-          message: 'Emploi du temps récupéré avec succès',
-          data: data,
+          message: 'Séances récupérées avec succès',
+          data: {'data': filteredSeances},
         );
       } else {
         return ApiResponse(
           success: false,
-          message: data['message'] ?? 'Erreur lors de la récupération de l\'emploi du temps',
+          message: data['message'] ?? 'Erreur lors de la récupération des séances',
           errors: data['errors'],
         );
       }
     } catch (e) {
+      dev.log("Exception dans getSeancesByEnseignantAndDateRange: ${e.toString()}", error: e);
       return ApiResponse(
         success: false,
         message: 'Erreur: ${e.toString()}',
@@ -358,6 +401,17 @@ class SeanceService {
   // Récupérer des classes par leurs IDs
   Future<ApiResponse> getClassesByIds(List<String> classeIds) async {
     try {
+      dev.log("Appel API: /classes/batch avec IDs: $classeIds");
+      
+      if (classeIds.isEmpty) {
+        dev.log("Aucun ID de classe fourni, retour d'une liste vide");
+        return ApiResponse(
+          success: true,
+          message: 'Aucune classe à récupérer',
+          data: [],
+        );
+      }
+      
       final response = await http.post(
         Uri.parse('${ApiRoutes.baseURL}/classes/batch'),
         headers: {
@@ -366,9 +420,13 @@ class SeanceService {
         body: jsonEncode({'ids': classeIds}),
       );
 
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
+
       final data = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200 && data['success'] == true) {
+        dev.log("Nombre de classes récupérées: ${(data['data'] ?? []).length}");
         return ApiResponse(
           success: true,
           message: 'Classes récupérées avec succès',
@@ -382,6 +440,7 @@ class SeanceService {
         );
       }
     } catch (e) {
+      dev.log("Exception dans getClassesByIds: ${e.toString()}", error: e);
       return ApiResponse(
         success: false,
         message: 'Erreur: ${e.toString()}',
@@ -444,6 +503,155 @@ class SeanceService {
         return ApiResponse(
           success: false,
           message: data['message'] ?? 'Erreur lors de la récupération des créneaux',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Récupérer toutes les classes
+  Future<ApiResponse> getAllClasses() async {
+    try {
+      dev.log("Appel API: /classes");
+      final response = await http.get(
+        Uri.parse('${ApiRoutes.baseURL}/classes'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
+
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        dev.log("Nombre total de classes récupérées: ${(data['data'] ?? []).length}");
+        // Afficher les IDs des classes récupérées pour le débogage
+        for (var classe in data['data'] ?? []) {
+          dev.log("Classe ID: ${classe['id']}, Nom: ${classe['nom']}");
+        }
+        return ApiResponse(
+          success: true,
+          message: 'Classes récupérées avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de la récupération des classes',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      dev.log("Exception dans getAllClasses: ${e.toString()}", error: e);
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Récupérer une classe par son ID
+  Future<ApiResponse> getClasseById(String classeId) async {
+    try {
+      dev.log("Appel API: /classes/$classeId");
+      final response = await http.get(
+        Uri.parse('${ApiRoutes.baseURL}/classes/$classeId'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
+
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        dev.log("Classe récupérée: ${data['data']['nom']}");
+        return ApiResponse(
+          success: true,
+          message: 'Classe récupérée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de la récupération de la classe',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      dev.log("Exception dans getClasseById: ${e.toString()}", error: e);
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Confirmer une séance
+  Future<ApiResponse> confirmerSeance(String seanceId) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiRoutes.baseURL}/seances/$seanceId/confirmer'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: 'Séance confirmée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de la confirmation de la séance',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Annuler une séance avec justification
+  Future<ApiResponse> annulerSeance(String seanceId, String justification) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiRoutes.baseURL}/seances/$seanceId/annuler'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode({'justification': justification}),
+      );
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: 'Séance annulée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de l\'annulation de la séance',
           errors: data['errors'],
         );
       }

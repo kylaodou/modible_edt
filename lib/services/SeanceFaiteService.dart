@@ -125,4 +125,102 @@ class SeanceFaiteService {
       );
     }
   }
+
+  // Confirmer une séance
+  Future<ApiResponse> confirmerSeance(String seanceId) async {
+    try {
+      // Vérifier si l'utilisateur est connecté
+      Map<String, dynamic>? userData = await _userSessionService.getUserData();
+      if (userData == null) {
+        return ApiResponse(
+          success: false,
+          message: 'Utilisateur non connecté',
+        );
+      }
+
+      dev.log("Appel API: /seances/$seanceId/confirmer");
+      final response = await http.put(
+        Uri.parse('${ApiRoutes.baseURL}/seances/$seanceId/confirmer'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+      );
+
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: 'Séance confirmée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de la confirmation de la séance',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      dev.log("Exception dans confirmerSeance: ${e.toString()}", error: e);
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Annuler une séance
+  Future<ApiResponse> annulerSeance(String seanceId) async {
+    try {
+      // Vérifier si l'utilisateur est connecté
+      Map<String, dynamic>? userData = await _userSessionService.getUserData();
+      if (userData == null) {
+        return ApiResponse(
+          success: false,
+          message: 'Utilisateur non connecté',
+        );
+      }
+
+      // Demander une justification à l'utilisateur
+      String justification = "Absence de l'enseignant";
+
+      dev.log("Appel API: /seances/$seanceId/annuler");
+      final response = await http.put(
+        Uri.parse('${ApiRoutes.baseURL}/seances/$seanceId/annuler'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode({'justification': justification}),
+      );
+
+      dev.log("Réponse API status: ${response.statusCode}");
+      dev.log("Réponse API body: ${response.body}");
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: 'Séance annulée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de l\'annulation de la séance',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      dev.log("Exception dans annulerSeance: ${e.toString()}", error: e);
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
 }
