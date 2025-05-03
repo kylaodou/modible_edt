@@ -454,4 +454,152 @@ class SeanceService {
       );
     }
   }
+
+  // Confirmer une séance (marquer comme faite)
+  Future<ApiResponse> confirmerSeance(String seanceId, String commentaire) async {
+    try {
+      dev.log("Confirmation de la séance $seanceId avec commentaire: $commentaire");
+      
+      final response = await http.put(
+        Uri.parse('${ApiRoutes.baseURL}/seances/$seanceId/confirmer'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode({
+          'fait': true,
+          'commentaire': commentaire,
+        }),
+      );
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      dev.log("Réponse de l'API: ${response.statusCode}, ${data.toString()}");
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: 'Séance confirmée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de la confirmation de la séance',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      dev.log("Erreur lors de la confirmation de la séance: ${e.toString()}", error: e);
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Annuler une séance
+  Future<ApiResponse> annulerSeance(String seanceId, String justification) async {
+    try {
+      dev.log("Annulation de la séance $seanceId avec justification: $justification");
+      
+      final response = await http.put(
+        Uri.parse('${ApiRoutes.baseURL}/seances/$seanceId/annuler'),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode({
+          'statut': 'Annulée',
+          'commentaire': justification,
+        }),
+      );
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      dev.log("Réponse de l'API: ${response.statusCode}, ${data.toString()}");
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return ApiResponse(
+          success: true,
+          message: 'Séance annulée avec succès',
+          data: data['data'],
+        );
+      } else {
+        return ApiResponse(
+          success: false,
+          message: data['message'] ?? 'Erreur lors de l\'annulation de la séance',
+          errors: data['errors'],
+        );
+      }
+    } catch (e) {
+      dev.log("Erreur lors de l'annulation de la séance: ${e.toString()}", error: e);
+      return ApiResponse(
+        success: false,
+        message: 'Erreur: ${e.toString()}',
+      );
+    }
+  }
+
+  // Vérifier si une séance est passée (pour empêcher la modification après l'heure)
+  bool isSeancePassed(Map<String, dynamic> seance) {
+    try {
+      // Récupérer le jour et le créneau de la séance
+      String jour = seance['jour']?.toString().toLowerCase() ?? '';
+      String creneau = seance['creneau']?.toString() ?? '';
+      
+      // Convertir le jour en numéro de jour de la semaine (1 = lundi, 7 = dimanche)
+      int jourNum;
+      switch (jour) {
+        case 'lundi': jourNum = 1; break;
+        case 'mardi': jourNum = 2; break;
+        case 'mercredi': jourNum = 3; break;
+        case 'jeudi': jourNum = 4; break;
+        case 'vendredi': jourNum = 5; break;
+        case 'samedi': jourNum = 6; break;
+        case 'dimanche': jourNum = 7; break;
+        default: jourNum = 0; break;
+      }
+      
+      if (jourNum == 0) {
+        dev.log("Jour invalide: $jour");
+        return false; // Si le jour est invalide, on considère que la séance n'est pas passée
+      }
+      
+      // Extraire l'heure de fin du créneau (format: "8H-12H" ou "14H-18H")
+      String heureFinStr = '';
+      if (creneau.contains('-')) {
+        heureFinStr = creneau.split('-')[1].trim();
+      }
+      
+      if (heureFinStr.isEmpty) {
+        dev.log("Format de créneau invalide: $creneau");
+        return false; // Si le format du créneau est invalide, on considère que la séance n'est pas passée
+      }
+      
+      // Convertir l'heure de fin en entier (ex: "12H" -> 12)
+      int heureFin = int.tryParse(heureFinStr.replaceAll('H', '')) ?? 0;
+      
+      if (heureFin == 0) {
+        dev.log("Heure de fin invalide: $heureFinStr");
+        return false; // Si l'heure de fin est invalide, on considère que la séance n'est pas passée
+      }
+      
+      // Récupérer la date et l'heure actuelles
+      DateTime now = DateTime.now();
+      int jourActuel = now.weekday; // 1 = lundi, 7 = dimanche
+      int heureActuelle = now.hour;
+      
+      // Vérifier si la séance est passée
+      if (jourActuel > jourNum) {
+        // Si le jour actuel est après le jour de la séance, la séance est passée
+        return true;
+      } else if (jourActuel == jourNum && heureActuelle >= heureFin) {
+        // Si c'est le même jour et l'heure actuelle est après l'heure de fin, la séance est passée
+        return true;
+      }
+      
+      // La séance n'est pas encore passée
+      return false;
+    } catch (e) {
+      dev.log("Erreur lors de la vérification si la séance est passée: ${e.toString()}", error: e);
+      return false; // En cas d'erreur, on considère que la séance n'est pas passée
+    }
+  }
 }

@@ -49,6 +49,7 @@ class _EdtPageState extends State<EdtPage> {
       _loadData();
     });
   }
+
   void showMarquerSeanceFaiteDialog(Map<String, dynamic> seance) {
     final TextEditingController commentaireController = TextEditingController();
     final bool fait = seance['fait'] == true;
@@ -160,7 +161,7 @@ class _EdtPageState extends State<EdtPage> {
                         reinitialiserSeanceFaite(seance);
                       },
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Réi nitialiser'),
+                      label: const Text('Réinitialiser'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                         side: const BorderSide(color: Colors.red),
@@ -200,7 +201,7 @@ class _EdtPageState extends State<EdtPage> {
     );
   }
 
-// Fonction pour marquer une séance comme faite
+  // Fonction pour marquer une séance comme faite
   void marquerSeanceFaite(Map<String, dynamic> seance, String commentaire) async {
     try {
       final url = Uri.parse('${ApiRoutes.baseURL}/seance-faite/${seance['id']}');
@@ -283,7 +284,7 @@ class _EdtPageState extends State<EdtPage> {
     }
   }
 
-// Fonction pour réinitialiser le statut d'une séance
+  // Fonction pour réinitialiser le statut d'une séance
   void reinitialiserSeanceFaite(Map<String, dynamic> seance) async {
     try {
       final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
@@ -332,6 +333,7 @@ class _EdtPageState extends State<EdtPage> {
       _showErrorSnackBar('Exception: $e');
     }
   }
+
   Future<void> _checkUserRole() async {
     Map<String, dynamic>? userData = await _userSessionService.getUserData();
     if (userData?['data']?['details']?['estDelegue'] != null) {
@@ -439,10 +441,14 @@ class _EdtPageState extends State<EdtPage> {
       );
 
       if (response.success) {
-        setState(() => _seances = List<Map<String, dynamic>>.from(response.data['data'] ?? []));
+        setState(() {
+          if (response.data != null && response.data['data'] != null) {
+            _seances = List<Map<String, dynamic>>.from(response.data['data']);
+          }
+        });
         await _loadReferenceData();
       } else {
-        setState(() => _errorMessage = response.message ?? 'Erreur lors de la récupération des séances');
+        setState(() => _errorMessage = response.message);
       }
     } catch (e) {
       setState(() => _errorMessage = 'Erreur: ${e.toString()}');
@@ -711,184 +717,267 @@ class _EdtPageState extends State<EdtPage> {
   }
 
   Widget _buildEventCard(Map<String, dynamic> seance) {
-    final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
-    final salle = _salles.firstWhere((s) => s['id'] == seance['salleId'], orElse: () => {});
-    final enseignant = _enseignants.firstWhere((e) => e['id'] == cours['enseignantId'], orElse: () => {});
+    // Récupérer les informations du cours
+    final cours = _cours.firstWhere(
+          (c) => c['id'] == seance['coursId'],
+      orElse: () => {'intitule': 'Cours inconnu', 'code': ''},
+    );
 
-    final type = seance['type'] ?? 'COURS';
-    final color = _getColorByType(type);
-    final icon = _getIconByType(type);
+    // Récupérer les informations de la salle
+    final salle = _salles.firstWhere(
+          (s) => s['id'] == seance['salleId'],
+      orElse: () => {'batiment': '', 'numero': 'Salle inconnue'},
+    );
+
+    // Récupérer les informations de la classe
+    final classe = _classes.firstWhere(
+          (c) => c['id'] == seance['classeId'],
+      orElse: () => {'nom': 'Classe inconnue'},
+    );
+
+    final String coursTitle = cours['intitule'] ?? 'Cours inconnu';
+    final String coursCode = cours['code'] ?? '';
+    final String salleInfo = '${salle['batiment'] ?? ''} ${salle['numero'] ?? 'Salle inconnue'}'.trim();
+    final String classeInfo = classe['nom'] ?? 'Classe inconnue';
+    final String type = seance['type'] ?? 'COURS';
+    final String creneau = seance['creneau'] ?? '';
     final bool fait = seance['fait'] == true;
+    final String statut = seance['statut'] ?? 'Planifiée';
+    final String commentaire = seance['commentaire'] ?? '';
+    final Color color = _getColorByType(type);
+    
+    // Vérifier si la séance est passée
+    final bool estPassee = _seanceService.isSeancePassed(seance);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 10,
             offset: const Offset(0, 4),
-            spreadRadius: 2,
-          )
+          ),
         ],
-        border: fait
-            ? Border.all(color: Colors.green.withOpacity(0.5), width: 2)
-            : Border.all(color: color.withOpacity(0.2), width: 1),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête du cours avec gradient
+          // En-tête avec type et statut
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  color,
-                  color.withOpacity(0.8),
-                ],
+              color: color.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              border: Border(
+                bottom: BorderSide(color: color.withOpacity(0.3), width: 1),
+              ),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Icône du type de cours
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2))],
-                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 24),
-                ),
-                const SizedBox(width: 16),
-                // Titre et code du cours
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              cours['intitule'] ?? 'Cours inconnu',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                height: 1.2,
-                                color: Colors.white,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                            ),
-                          ),
-                          if (fait)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.3),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.check, color: Colors.white, size: 18),
-                            ),
-                        ],
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 6),
-                      // Badge pour le code et type de cours
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
-                        ),
-                        child: Text(
-                          '${cours['code']} - $type',
+                      child: Icon(_getIconByType(type), color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$type - $creneau',
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        Text(
+                          '$coursCode - $coursTitle',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+                if (fait)
+                  _buildStatusIndicator()
+                else if (statut == 'Annulée')
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'Annulée',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      statut,
+                      style: const TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-          // Contenu du cours
+
+          // Contenu principal
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Indicateur de statut si le cours est fait
-                if (fait) _buildStatusIndicator(),
+                // Informations sur la salle
+                _buildInfoRow(Icons.location_on, salleInfo),
+                
+                // Informations sur la classe
+                _buildInfoRow(Icons.class_, classeInfo),
 
-                // Affichage du commentaire s'il existe
-                if (seance['commentaire'] != null && seance['commentaire'].toString().isNotEmpty)
+                // Commentaire si présent
+                if (commentaire.isNotEmpty)
                   Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
+                    margin: const EdgeInsets.only(top: 8, bottom: 16),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.comment, size: 18, color: color),
+                            Icon(Icons.comment, size: 16, color: color),
                             const SizedBox(width: 8),
-                            Text(
+                            const Text(
                               'Commentaire:',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: color, fontSize: 15),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          seance['commentaire'],
-                          style: TextStyle(color: Colors.grey[800], fontSize: 14, height: 1.4),
+                          commentaire,
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
                   ),
 
-                // Informations sur le cours
-                const SizedBox(height: 6),
-                _buildInfoRow(Icons.location_on, salle.isNotEmpty ? '${salle['batiment']} ${salle['numero']}' : 'Salle non définie'),
-                _buildInfoRow(Icons.access_time, seance['creneau'] ?? 'Horaire non défini'),
-                if (enseignant.isNotEmpty) _buildInfoRow(Icons.person, '${enseignant['prenom']} ${enseignant['nom']}'),
-
-                // Bout ons d'action pour  les délégués - seulement pour aujourd'hui et si le cours n'est pas fait
-                if (_estDelegue && !fait && _isToday())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: _buildActionButton(seance),
-                  ),
-                // Si le cours est fait et que l'utilisateur est délégué, afficher des boutons pour modifier ou réinitialiser
-                if (_estDelegue && fait)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: _buildModifyStatusButton(seance),
+                // Boutons d'action
+                if (!fait && statut != 'Annulée' && !estPassee)
+                  Row(
+                    children: [
+                      // Bouton Confirmer
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => showMarquerSeanceFaiteDialog(seance),
+                          icon: const Icon(Icons.check_circle, color: Colors.white),
+                          label: const Text('Confirmer'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Bouton Annuler
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAnnulerSeanceDialog(seance),
+                          icon: const Icon(Icons.cancel, color: Colors.white),
+                          label: const Text('Annuler'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else if (estPassee)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.access_time, color: Colors.grey[600]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Cette séance est passée et ne peut plus être modifiée.',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (fait || statut == 'Annulée')
+                  ElevatedButton.icon(
+                    onPressed: () => _showModifierStatutDialog(seance),
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    label: const Text('Modifier le statut'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -898,12 +987,302 @@ class _EdtPageState extends State<EdtPage> {
     );
   }
 
-  Widget _buildModifyStatusButton(Map<String, dynamic> seance) {
-    return Row(
-      children: [
-        const SizedBox(width: 12),
-      ],
+  // Afficher le dialogue pour annuler une séance
+  void _showAnnulerSeanceDialog(Map<String, dynamic> seance) {
+    final TextEditingController justificationController = TextEditingController();
+    final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
+    final String coursTitle = cours['intitule'] ?? 'Cours inconnu';
+    final String coursCode = cours['code'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 5,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.cancel, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Annuler la séance',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$coursTitle ($coursCode)',
+                          style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Justification de l\'annulation:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: justificationController,
+                decoration: const InputDecoration(
+                  hintText: 'Entrez la raison de l\'annulation...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _annulerSeance(seance, justificationController.text);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Confirmer l\'annulation'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
+  }
+
+  // Afficher le dialogue pour modifier le statut d'une séance
+  void _showModifierStatutDialog(Map<String, dynamic> seance) {
+    final TextEditingController commentaireController = TextEditingController();
+    final cours = _cours.firstWhere((c) => c['id'] == seance['coursId'], orElse: () => {});
+    final String coursTitle = cours['intitule'] ?? 'Cours inconnu';
+    final String coursCode = cours['code'] ?? '';
+    final bool fait = seance['fait'] == true;
+    final String statut = seance['statut'] ?? 'Planifiée';
+    
+    if (seance['commentaire'] != null && seance['commentaire'].toString().isNotEmpty) {
+      commentaireController.text = seance['commentaire'];
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 5,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: fait ? Colors.green : (statut == 'Annulée' ? Colors.red : Colors.orange),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      fait ? Icons.check_circle : (statut == 'Annulée' ? Icons.cancel : Icons.pending),
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Modifier le statut',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$coursTitle ($coursCode)',
+                          style: TextStyle(color: Colors.grey[700], fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Statut actuel:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: fait ? Colors.green.withOpacity(0.1) : (statut == 'Annulée' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1)),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: fait ? Colors.green.withOpacity(0.3) : (statut == 'Annulée' ? Colors.red.withOpacity(0.3) : Colors.orange.withOpacity(0.3)),
+                  ),
+                ),
+                child: Text(
+                  fait ? 'Confirmée' : statut,
+                  style: TextStyle(
+                    color: fait ? Colors.green : (statut == 'Annulée' ? Colors.red : Colors.orange),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Commentaire:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: commentaireController,
+                decoration: const InputDecoration(
+                  hintText: 'Entrez un commentaire...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Options de statut
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _confirmerSeance(seance, commentaireController.text);
+                        },
+                        icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                        label: const Text('Confirmer'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _annulerSeance(seance, commentaireController.text);
+                        },
+                        icon: const Icon(Icons.cancel, color: Colors.white, size: 16),
+                        label: const Text('Annuler'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Bouton fermer
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Fermer'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Confirmer une séance
+  Future<void> _confirmerSeance(Map<String, dynamic> seance, String commentaire) async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final response = await _seanceService.confirmerSeance(seance['id'], commentaire);
+      
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Séance confirmée avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _loadData(); // Recharger les données
+      } else {
+        _showErrorSnackBar(response.message);
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erreur: ${e.toString()}');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Annuler une séance
+  Future<void> _annulerSeance(Map<String, dynamic> seance, String justification) async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final response = await _seanceService.annulerSeance(seance['id'], justification);
+      
+      if (response.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Séance annulée avec succès'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        await _loadData(); // Recharger les données
+      } else {
+        _showErrorSnackBar(response.message);
+      }
+    } catch (e) {
+      _showErrorSnackBar('Erreur: ${e.toString()}');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Widget _buildStatusIndicator() {
@@ -980,26 +1359,6 @@ class _EdtPageState extends State<EdtPage> {
     );
   }
 
-  Widget _buildActionButton(Map<String, dynamic> seance) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: () => showMarquerSeanceFaiteDialog(seance),
-        icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-        label: const Text('Marquer comme fait'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 3,
-          shadowColor: Colors.green.withOpacity(0.4),
-        ),
-      ),
-    );
-  }
-
   Color _getColorByType(String type) {
     switch (type.toLowerCase()) {
       case 'cm': return Colors.blue;
@@ -1046,5 +1405,4 @@ class _EdtPageState extends State<EdtPage> {
       ),
     );
   }
-
 }
